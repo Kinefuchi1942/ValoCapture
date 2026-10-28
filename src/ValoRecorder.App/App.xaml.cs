@@ -26,6 +26,8 @@ public partial class App : Application
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _exiting;
     private readonly HashSet<string> _notifiedStarts = [];
+    // 音量スライダーを動かしている間に何度も保存しないよう、止まってから保存する
+    private readonly DispatcherTimer _volumeSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
 
     private static string LogPath => Path.Combine(Path.GetDirectoryName(AppSettings.DefaultPath)!, "app.log");
 
@@ -46,8 +48,9 @@ public partial class App : Application
         _settings = AppSettings.Load();
         _settings.Save(); // 初回起動時に既定値のファイルを作っておく（手で編集できるように）
 
-        _vm = new MainViewModel(_settings.RecordingsRoot);
+        _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume);
         _vm.PropertyChanged += OnViewModelPropertyChanged;
+        _volumeSaveTimer.Tick += (_, _) => { _volumeSaveTimer.Stop(); _settings.Save(); };
 
         _host = new RecorderHost(_settings);
         _host.Log += WriteLog;
@@ -97,28 +100,34 @@ public partial class App : Application
         if (_host is null || _vm is null || _tray is null) return;
 
         var recording = _host.CurrentSession;
-        string status;
+        var targets = "録画対象: " + string.Join("・", _host.Target.Queues.Select(DisplayNames.Queue));
+        string tray;
         if (recording is not null)
         {
             var elapsed = recording.RecordStartedAt is { } start ? DateTimeOffset.UtcNow - start : TimeSpan.Zero;
-            status = $"● 録画中  {DisplayNames.Map(recording.MapId)}  {elapsed:mm\\:ss}";
+            var map = recording.MapId.Length > 0 ? DisplayNames.Map(recording.MapId) : "マップ確認中";
+            _vm.StatusTitle = "録画中";
+            _vm.StatusTime = elapsed.ToString(@"mm\:ss");
+            _vm.StatusDetail = $"{DisplayNames.Queue(recording.QueueId)} · {map}";
+            tray = $"録画中 {map} {_vm.StatusTime}";
         }
         else
         {
             var s = _host.State;
-            status = s.State switch
+            _vm.StatusTitle = s.State switch
             {
                 GameState.RiotClientClosed or GameState.ValorantClosed => "VALORANT 未起動",
                 GameState.RiotClientUnavailable => "Riot Client に接続できません",
-                GameState.InGame => $"試合中（{DisplayNames.Queue(s.QueueId)} は録画対象外）",
+                GameState.InGame => "録画対象外の試合中",
                 _ => "待機中",
             };
+            _vm.StatusTime = "";
+            _vm.StatusDetail = s.State == GameState.InGame ? $"{DisplayNames.Queue(s.QueueId)} · {targets}" : targets;
+            tray = _vm.StatusTitle;
         }
 
-        _vm.StatusText = status;
         _vm.IsRecording = recording is not null;
-        _vm.TargetText = "録画対象: " + string.Join("・", _host.Target.Queues.Select(DisplayNames.Queue));
-        _tray.Update(status, recording is not null);
+        _tray.Update(tray, recording is not null);
     }
 
     private bool IsQueueSelected(string queueId) => _host!.Target.Queues.Contains(queueId);
@@ -136,10 +145,19 @@ public partial class App : Application
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(MainViewModel.RecordingsRoot)) return;
-        _settings.RecordingsRoot = _vm!.RecordingsRoot;
-        _settings.Save();
-        _host!.OutputRoot = _vm.RecordingsRoot;
+        switch (e.PropertyName)
+        {
+            case nameof(MainViewModel.RecordingsRoot):
+                _settings.RecordingsRoot = _vm!.RecordingsRoot;
+                _settings.Save();
+                _host!.OutputRoot = _vm.RecordingsRoot;
+                break;
+            case nameof(MainViewModel.Volume):
+                _settings.Volume = _vm!.Volume;
+                _volumeSaveTimer.Stop();
+                _volumeSaveTimer.Start();
+                break;
+        }
     }
 
     private void ShowViewer()

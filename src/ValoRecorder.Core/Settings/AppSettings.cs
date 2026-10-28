@@ -22,6 +22,9 @@ public sealed class AppSettings
     public bool CaptureMicrophone { get; set; }
     public long DefaultOffsetMs { get; set; } = SessionOrchestrator.CalibratedOffsetMs;
 
+    /// <summary>ビューアの再生音量（0〜1）。</summary>
+    public double Volume { get; set; } = 0.8;
+
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ValoRecorder", "settings.json");
 

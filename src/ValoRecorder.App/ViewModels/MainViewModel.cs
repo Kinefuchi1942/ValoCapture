@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ValoRecorder.Core.Sessions;
@@ -11,9 +10,13 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>イベントへジャンプするとき、何秒前から再生するか。</summary>
     public static readonly TimeSpan PreRoll = TimeSpan.FromSeconds(3);
 
-    public MainViewModel(string recordingsRoot)
+    /// <summary>この間隔以内にデスを挟まず続いたキルを「連続キル」とする。</summary>
+    private const long StreakGapMs = 6_000;
+
+    public MainViewModel(string recordingsRoot, double volume)
     {
         _recordingsRoot = recordingsRoot;
+        _volume = volume;
         Reload();
     }
 
@@ -27,11 +30,25 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _recordingsRoot;
     [ObservableProperty] private SessionItemViewModel? _selectedSession;
+    [ObservableProperty] private EventItemViewModel? _selectedEvent;
     [ObservableProperty] private bool _showKills = true;
     [ObservableProperty] private bool _showDeaths = true;
     [ObservableProperty] private bool _showAssists;
     [ObservableProperty] private bool _showRoundStarts = true;
     [ObservableProperty] private string _offsetText = "";
+
+    /// <summary>ラウンド制のモード（ランク等）か。デスマッチ等ではラウンドの絞り込みを出さない。</summary>
+    [ObservableProperty] private bool _isRoundBased;
+
+    /// <summary>音量（0〜1）。</summary>
+    [ObservableProperty] private double _volume;
+    [ObservableProperty] private bool _isMuted;
+
+    // 録画の状態（左上のカード）
+    [ObservableProperty] private string _statusTitle = "";
+    [ObservableProperty] private string _statusTime = "";
+    [ObservableProperty] private string _statusDetail = "";
+    [ObservableProperty] private bool _isRecording;
 
     partial void OnSelectedSessionChanged(SessionItemViewModel? value) => RefreshEvents();
     partial void OnShowKillsChanged(bool value) => RefreshEvents();
@@ -39,11 +56,7 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnShowAssistsChanged(bool value) => RefreshEvents();
     partial void OnShowRoundStartsChanged(bool value) => RefreshEvents();
     partial void OnRecordingsRootChanged(string value) => Reload();
-
-    /// <summary>録画の状態（例: 「● 録画中 サンセット 03:12」）。</summary>
-    [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private bool _isRecording;
-    [ObservableProperty] private string _targetText = "";
+    partial void OnVolumeChanged(double value) { if (value > 0) IsMuted = false; }
 
     /// <summary>
     /// 録画フォルダを読み直す。既存の行は同じインスタンスのまま中身だけ更新するので、
@@ -82,6 +95,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void JumpTo(EventItemViewModel? item)
     {
         if (item is null) return;
+        SelectedEvent = item;
         var t = item.VideoTime - PreRoll;
         SeekRequested?.Invoke(t < TimeSpan.Zero ? TimeSpan.Zero : t);
     }
@@ -97,6 +111,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool CanAdjustOffset(string _) => SelectedSession?.Session.HasMatchDetails == true;
 
+    [RelayCommand]
+    private void ToggleMute() => IsMuted = !IsMuted;
+
     /// <summary>現在位置より後の最初のイベント（なければ null）。</summary>
     public EventItemViewModel? NextEvent(TimeSpan position) =>
         Events.FirstOrDefault(e => e.VideoTime - PreRoll > position + TimeSpan.FromSeconds(0.5));
@@ -108,16 +125,20 @@ public sealed partial class MainViewModel : ObservableObject
     private void RefreshEvents()
     {
         Events.Clear();
+        SelectedEvent = null;
         AdjustOffsetCommand.NotifyCanExecuteChanged();
 
         if (SelectedSession?.Timeline is not { } timeline)
         {
             OffsetText = "";
+            IsRoundBased = false;
             return;
         }
 
-        OffsetText = $"補正 {SelectedSession.Session.OffsetMs / 1000.0:+0.0;-0.0}秒";
-        var isRoundBased = timeline.Events.Select(e => e.Round).Distinct().Count() > 1;
+        OffsetText = $"{SelectedSession.Session.OffsetMs / 1000.0:+0.0;-0.0} 秒";
+        var isRoundBased = IsRoundBased = timeline.Events.Select(e => e.Round).Distinct().Count() > 1;
+        var streaks = FindStreaks(timeline.Events);
+
         foreach (var e in timeline.Events)
         {
             if (e.VideoTimeMs is null) continue;
@@ -130,7 +151,33 @@ public sealed partial class MainViewModel : ObservableObject
                 MatchEventType.RoundStart => ShowRoundStarts && isRoundBased,
                 _ => false,
             };
-            if (visible) Events.Add(new EventItemViewModel(e, isRoundBased));
+            if (visible) Events.Add(new EventItemViewModel(e, isRoundBased, streaks.GetValueOrDefault(e)));
         }
+    }
+
+    /// <summary>連続キルの先頭のキル → 連続数。</summary>
+    private static Dictionary<MatchEvent, int> FindStreaks(IReadOnlyList<MatchEvent> events)
+    {
+        var result = new Dictionary<MatchEvent, int>();
+        MatchEvent? head = null;
+        MatchEvent? last = null;
+        var count = 0;
+
+        foreach (var e in events.Where(e => e.Type is MatchEventType.Kill or MatchEventType.Death))
+        {
+            if (e.Type == MatchEventType.Kill && last is { Type: MatchEventType.Kill } && e.GameTimeMs - last.GameTimeMs <= StreakGapMs)
+            {
+                count++;
+            }
+            else
+            {
+                if (head is not null && count >= 2) result[head] = count;
+                head = e.Type == MatchEventType.Kill ? e : null;
+                count = e.Type == MatchEventType.Kill ? 1 : 0;
+            }
+            last = e;
+        }
+        if (head is not null && count >= 2) result[head] = count;
+        return result;
     }
 }

@@ -3,7 +3,8 @@ using ValoRecorder.Core.Sessions;
 namespace ValoRecorder.App.ViewModels;
 
 /// <summary>イベント一覧・タイムライン上の 1 イベント（動画内にあるものだけ）。</summary>
-public sealed class EventItemViewModel(MatchEvent e, bool isRoundBased)
+/// <param name="streak">連続キルの先頭なら連続数（2 以上）。</param>
+public sealed class EventItemViewModel(MatchEvent e, bool isRoundBased, int streak = 0)
 {
     public MatchEvent Event { get; } = e;
     public MatchEventType Type => Event.Type;
@@ -20,5 +21,11 @@ public sealed class EventItemViewModel(MatchEvent e, bool isRoundBased)
         _ => Type.ToString(),
     };
 
-    public string RoundText => isRoundBased && Type != MatchEventType.RoundStart ? $"R{Event.Round + 1}" : "";
+    /// <summary>右端の補足（連続キル、ラウンド番号）。</summary>
+    public string Note =>
+        streak >= 2 ? $"{streak}連続"
+        : isRoundBased && Type != MatchEventType.RoundStart ? $"R{Event.Round + 1}"
+        : "";
+
+    public bool IsStreak => streak >= 2;
 }

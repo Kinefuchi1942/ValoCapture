@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ValoRecorder viewer mockup</title>
+<style>
+  /* MyDashboard のデザイン方針に合わせた配色 */
+  :root {
+    --ground: #0F141B; --panel: #161D26; --rule: #243040; --hover: #1C2633; --field: #0B1016;
+    --text: #E8ECF2; --dim: #8592A5; --soft: #C6CFDB;
+    --accent: #5CC8D7; --accent-soft: rgba(92, 200, 215, .12);
+    --kill: #6FD3A8; --death: #FF5D5D; --assist: #7FB2F0; --rec: #FF5D5D;
+    --num: "Bahnschrift", "Segoe UI", sans-serif;
+    --ui: "Yu Gothic UI", "Meiryo UI", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1500px; height: 760px; overflow: hidden; background: var(--ground); color: var(--text);
+         font-family: var(--ui); font-size: 14px; padding: 16px;
+         display: grid; grid-template-columns: 236px 1fr 272px; gap: 16px; }
+  .num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+  .dim { color: var(--dim); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px;
+          border: 1px solid var(--rule); background: var(--panel); color: var(--soft); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+
+  /* 左列 */
+  .left { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .status { padding: 12px 14px; border-color: rgba(255, 93, 93, .45);
+            background: linear-gradient(135deg, rgba(255, 93, 93, .14), rgba(255, 93, 93, .03) 70%), var(--panel); }
+  .status .row { display: flex; align-items: center; justify-content: space-between; }
+  .status .label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .status .label .dot { width: 10px; height: 10px; background: var(--rec); box-shadow: 0 0 0 4px rgba(255, 93, 93, .2); }
+  .status .elapsed { font-size: 26px; font-weight: 600; font-stretch: semi-condensed; }
+  .status .sub { margin-top: 4px; font-size: 12px; }
+  .section { display: flex; align-items: baseline; justify-content: space-between; padding: 2px 4px 0; }
+  .section h2 { font-size: 16px; font-weight: 600; }
+  .matches { display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .match { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--rule); background: var(--panel); }
+  .match.sel { border-color: var(--accent); background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--panel); }
+  .match .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .match .map { font-size: 14px; font-weight: 600; }
+  .match .top .dim { font-size: 11px; }
+  .match .meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; font-size: 11px; }
+  .match .kda { font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .3px; }
+  .match .kda span { color: var(--dim); font-weight: 400; }
+  .strip { position: relative; height: 4px; margin-top: 7px; border-radius: 2px; background: var(--field); overflow: hidden; }
+  .strip i { position: absolute; top: 0; bottom: 0; width: 2px; }
+
+  /* 中央 */
+  .center { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; padding: 0 2px; }
+  .title { display: flex; align-items: center; gap: 10px; }
+  .title h1 { font-size: 26px; font-weight: 600; }
+  .score { display: flex; gap: 18px; text-align: right; }
+  .score div { line-height: 1; }
+  .score b { display: block; font-family: var(--num); font-size: 34px; font-weight: 600; font-stretch: semi-condensed; }
+  .score small { font-size: 11px; color: var(--dim); }
+  .video { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule);
+           background: #000 url(frame.jpg) center / cover; }
+  .video .badge { position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 8px;
+                  padding: 6px 12px; border-radius: 8px; background: rgba(11, 16, 22, .78); font-size: 13px; }
+  .timeline { padding: 14px 16px 10px; }
+  .track { position: relative; height: 34px; }
+  .track .bar { position: absolute; left: 0; right: 0; top: 13px; height: 8px; border-radius: 4px; background: var(--field); }
+  .track .played { position: absolute; left: 0; top: 13px; height: 8px; border-radius: 4px; background: #2B3A4C; }
+  .track i { position: absolute; width: 3px; border-radius: 2px; top: 4px; height: 26px; }
+  .track i.round { top: 22px; height: 12px; width: 1px; background: var(--dim); opacity: .6; }
+  .track i.assist { top: 9px; height: 16px; }
+  .playhead { position: absolute; top: -4px; bottom: -2px; width: 2px; background: var(--text); }
+  .playhead::before { content: ""; position: absolute; top: -5px; left: -5px; width: 12px; height: 12px; border-radius: 50%;
+                      background: var(--text); }
+  .tip { position: absolute; bottom: 42px; transform: translateX(-50%); white-space: nowrap; padding: 4px 9px; border-radius: 6px;
+         background: #223042; border: 1px solid #3A4A5E; font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  .scale { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; }
+  .controls { display: flex; align-items: center; gap: 8px; }
+  .btn { height: 36px; min-width: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--rule); background: var(--panel);
+         color: var(--text); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0B1117; min-width: 48px; }
+  .btn svg { width: 16px; height: 16px; fill: currentColor; }
+  .time { font-family: var(--num); font-size: 18px; margin: 0 8px; }
+  .time span { color: var(--dim); }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--field); border: 1px solid var(--rule); }
+  .seg b { padding: 5px 10px; border-radius: 6px; font: 600 12px var(--num); color: var(--dim); }
+  .seg b.on { background: #223042; color: var(--text); }
+  .spacer { flex: 1; }
+  .vol { position: relative; width: 90px; height: 4px; border-radius: 2px; background: #223042; margin: 0 4px; }
+  .vol .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 80%; border-radius: 2px; background: var(--accent); }
+  .vol .knob { position: absolute; left: calc(80% - 6px); top: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--text); }
+  .offset { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .offset .val { font-family: var(--num); font-size: 15px; color: var(--text); min-width: 54px; text-align: center; }
+
+  /* 右列 */
+  .right { display: flex; flex-direction: column; min-height: 0; padding: 14px 10px 10px; }
+  .right h2 { font-size: 18px; font-weight: 600; padding: 0 6px; }
+  .filters { display: flex; gap: 5px; padding: 10px 6px 4px; }
+  .filters .chip { white-space: nowrap; padding: 4px 8px; gap: 5px; }
+  .filters .chip.on { border-color: #3A4A5E; background: #1C2633; color: var(--text); }
+  .filters .chip.off { opacity: .5; }
+  .filters .chip b { font-family: var(--num); }
+  .hint { font-size: 11px; padding: 4px 6px 10px; }
+  .events { display: flex; flex-direction: column; overflow: hidden; }
+  .ev { display: grid; grid-template-columns: 12px 52px 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; }
+  .ev .t { font-family: var(--num); color: var(--soft); }
+  .ev.sel { background: var(--accent-soft); outline: 1px solid rgba(92, 200, 215, .5); }
+  .ev .streak { font-size: 11px; color: var(--kill); }
+</style>
+</head>
+<body>
+
+<!-- 左：録画の状態と試合一覧 -->
+<div class="left">
+  <div class="panel status">
+    <div class="row">
+      <div class="label"><span class="dot"></span>録画中</div>
+      <div class="elapsed num">12:34</div>
+    </div>
+    <div class="sub dim">コンペティティブ · アセント</div>
+  </div>
+
+  <div class="section"><h2>試合</h2><span class="dim num">3</span></div>
+  <div class="matches" id="matches"></div>
+</div>
+
+<!-- 中央：プレイヤー -->
+<div class="center">
+  <div class="head">
+    <div class="title">
+      <h1>サンセット</h1>
+      <span class="chip">デスマッチ</span>
+      <span class="chip num">10/28 22:40</span>
+    </div>
+    <div class="score">
+      <div><b style="color: var(--kill)">17</b><small>キル</small></div>
+      <div><b style="color: var(--death)">31</b><small>デス</small></div>
+      <div><b style="color: var(--assist)">4</b><small>アシスト</small></div>
+    </div>
+  </div>
+
+  <div class="video">
+    <div class="badge"><span class="dot" style="background: var(--kill)"></span><span class="num">01:17</span> キル</div>
+  </div>
+
+  <div class="panel timeline">
+    <div class="track" id="track">
+      <div class="bar"></div>
+      <div class="played" id="played"></div>
+    </div>
+    <div class="scale dim num"><span>00:00</span><span>05:21</span></div>
+  </div>
+
+  <div class="controls">
+    <span class="btn" title="前のイベント"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></span>
+    <span class="btn primary" title="一時停止"><svg viewBox="0 0 16 16"><path d="M4 2h3v12H4zM9 2h3v12H9z"/></svg></span>
+    <span class="btn" title="次のイベント"><svg viewBox="0 0 16 16"><path d="M11 2h2v12h-2zM2 2v12l8-6z"/></svg></span>
+    <div class="time">01:19 <span>/ 05:21</span></div>
+    <div class="seg"><b>0.25x</b><b>0.5x</b><b class="on">1x</b><b>2x</b></div>
+    <div class="spacer"></div>
+    <span class="btn" title="ミュート"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3.5v11L5 10H2z"/><path d="M11 5.2a4 4 0 0 1 0 5.6l-.9-.9a2.7 2.7 0 0 0 0-3.8zM12.6 3.6a6.3 6.3 0 0 1 0 8.8l-.9-.9a5 5 0 0 0 0-7z"/></svg></span>
+    <div class="vol"><div class="fill"></div><div class="knob"></div></div>
+    <span class="btn" title="全画面" style="margin-left: 4px"><svg viewBox="0 0 16 16"><path d="M9 2h5v5h-1.6V4.7L9.6 7.5 8.5 6.4l2.8-2.8H9zM7 14H2V9h1.6v2.3l2.8-2.8 1.1 1.1-2.8 2.8H7z"/></svg></span>
+    <div class="offset dim" style="margin-left: 12px">
+      時刻補正
+      <span class="btn">−</span>
+      <span class="val">+6.9 秒</span>
+      <span class="btn">＋</span>
+    </div>
+  </div>
+</div>
+
+<!-- 右：イベント -->
+<div class="panel right">
+  <h2>イベント</h2>
+  <div class="filters">
+    <span class="chip on"><span class="dot" style="background: var(--kill)"></span>キル <b>17</b></span>
+    <span class="chip on"><span class="dot" style="background: var(--death)"></span>デス <b>31</b></span>
+    <span class="chip off"><span class="dot" style="background: var(--assist)"></span>アシスト <b>4</b></span>
+  </div>
+  <div class="hint dim">クリックで 3 秒前から再生</div>
+  <div class="events" id="events"></div>
+</div>
+
+<script>
+  // サンセット（2026-10-28 22:40）の実データ。種別:動画上の秒
+  const raw = "R:33.9 D:37.2 D:45 D:53.8 A:55.9 K:61.3 D:62.7 D:67.8 K:77.7 K:84.4 D:85.9 K:92.9 K:94.7 K:97 D:102.2 D:106.2 K:114.3 D:116 D:118.7 D:122.5 K:127.9 D:131.7 A:134.9 K:136.5 K:142.8 D:145.1 D:153.4 K:161.8 D:170.2 A:172.6 K:172.9 D:180.2 K:189.7 D:192 D:198.1 A:198.3 D:201.3 K:214 K:217 D:217.1 D:221.1 D:226.6 D:230.7 D:241.7 D:244.7 D:265.2 K:268.6 K:279.5 D:281.9 D:286.4 D:290.7 D:297.8 D:307.2";
+  const events = raw.split(" ").map(s => { const [t, v] = s.split(":"); return { type: t, t: +v }; });
+  const duration = 321.36, position = 79.6;
+  const color = { K: "var(--kill)", D: "var(--death)", A: "var(--assist)" };
+  const label = { K: "キル", D: "デス", A: "アシスト" };
+  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+  // タイムライン
+  const track = document.getElementById("track");
+  for (const e of events) {
+    const i = document.createElement("i");
+    i.style.left = `calc(${(e.t / duration) * 100}% - 1px)`;
+    if (e.type === "R") i.className = "round";
+    else { i.style.background = color[e.type]; if (e.type === "A") i.className = "assist"; }
+    track.appendChild(i);
+  }
+  document.getElementById("played").style.width = `${(position / duration) * 100}%`;
+  const ph = document.createElement("div");
+  ph.className = "playhead"; ph.style.left = `calc(${(position / duration) * 100}% - 1px)`;
+  track.appendChild(ph);
+  const hovered = events.find(e => e.t === 84.4);
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.style.left = `${(hovered.t / duration) * 100}%`;
+  tip.innerHTML = `<span class="dot" style="background: var(--kill)"></span><span class="num">${fmt(hovered.t)}</span> キル`;
+  track.appendChild(tip);
+
+  // イベント一覧（キルとデスのみ表示中）
+  const list = document.getElementById("events");
+  events.filter(e => e.type === "K" || e.type === "D").slice(0, 16).forEach((e, idx, arr) => {
+    const row = document.createElement("div");
+    row.className = "ev" + (e.t === 77.7 ? " sel" : "");
+    const streak = e.type === "K" && arr[idx + 1]?.type === "K" && arr[idx + 2]?.type === "K" ? `<span class="streak">3連続</span>` : "<span></span>";
+    row.innerHTML = `<span class="dot" style="background: ${color[e.type]}"></span><span class="t">${fmt(e.t)}</span><span>${label[e.type]}</span>${streak}`;
+    list.appendChild(row);
+  });
+
+  // 試合一覧（ミニタイムライン付き）
+  const matches = [
+    { map: "サンセット", queue: "デスマッチ", date: "10/28 22:40", len: "5:21", k: 17, d: 31, a: 4, sel: true, ev: events },
+    { map: "Plummet", queue: "デスマッチ", date: "10/28 23:07", len: "5:21", k: 12, d: 24, a: 8,
+      ev: Array.from({ length: 36 }, (_, n) => ({ type: n % 3 ? "D" : "K", t: 20 + n * 8.3 })) },
+    { map: "ヘイヴン", queue: "デスマッチ", date: "10/28 22:15", len: "7:49", k: 30, d: 28, a: 5,
+      ev: Array.from({ length: 58 }, (_, n) => ({ type: n % 2 ? "D" : "K", t: 55 + n * 7 })) },
+  ];
+  const host = document.getElementById("matches");
+  for (const m of matches) {
+    const el = document.createElement("div");
+    el.className = "match" + (m.sel ? " sel" : "");
+    const span = m.sel ? duration : (m.len === "7:49" ? 469 : 321);
+    const ticks = m.ev.filter(e => e.type === "K" || e.type === "D")
+      .map(e => `<i style="left:${(e.t / span) * 100}%; background:${color[e.type]}"></i>`).join("");
+    el.innerHTML = `
+      <div class="top"><span class="map">${m.map}</span><span class="dim num">${m.date}</span></div>
+      <div class="meta"><span class="dim">${m.queue} · <span class="num">${m.len}</span></span>
+        <span class="kda num">${m.k} <span>/</span> ${m.d} <span>/</span> ${m.a}</span></div>
+      <div class="strip">${ticks}</div>`;
+    host.appendChild(el);
+  }
+</script>
+</body>
+</html>

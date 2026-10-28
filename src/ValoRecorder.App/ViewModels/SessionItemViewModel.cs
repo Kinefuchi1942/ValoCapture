@@ -27,24 +27,30 @@ public sealed partial class SessionItemViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Score))]
+    [NotifyPropertyChangedFor(nameof(HasScore), nameof(StripEvents))]
     private MatchTimeline? _timeline;
 
     public string MapName => DisplayNames.Map(Session.MapId);
     public string QueueName => DisplayNames.Queue(Session.QueueId);
     public string DateText => Session.DetectedAt.ToLocalTime().ToString("M/d HH:mm");
 
-    public string DurationText =>
-        Session.RecordStartedAt is { } start && Session.RecordStoppedAt is { } stop
-            ? (stop - start).ToString(@"m\:ss")
-            : "";
+    /// <summary>録画の長さ（録画中・不明なら 0）。</summary>
+    public TimeSpan Duration =>
+        Session.RecordStartedAt is { } start && Session.RecordStoppedAt is { } stop ? stop - start : TimeSpan.Zero;
 
-    public string Score => Timeline is { } t ? $"{t.MyKills} / {t.MyDeaths} / {t.MyAssists}" : StatusText;
+    public string DurationText => Duration > TimeSpan.Zero ? Duration.ToString(@"m\:ss") : "";
+
+    public bool HasScore => Timeline is not null;
+
+    /// <summary>ミニタイムラインに描くキルとデス。</summary>
+    public IReadOnlyList<MatchEvent> StripEvents =>
+        Timeline?.Events.Where(e => e.VideoTimeMs is not null && e.Type is MatchEventType.Kill or MatchEventType.Death).ToList()
+        ?? [];
 
     public string StatusText => Session.Status switch
     {
         SessionStatus.Recording => "録画中",
-        SessionStatus.FetchingDetails => "試合詳細の取得待ち",
+        SessionStatus.FetchingDetails => "イベント取得待ち",
         SessionStatus.Failed => "イベント取得失敗",
         _ => "",
     };
