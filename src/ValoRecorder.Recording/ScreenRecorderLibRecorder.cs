@@ -12,7 +12,7 @@ public sealed class ScreenRecorderLibRecorder : IScreenRecorder
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(60);
 
-    private readonly RecorderSettings _settings;
+    private RecorderSettings _settings;
     private Recorder? _recorder;
     private TaskCompletionSource<DateTimeOffset>? _started;
     private TaskCompletionSource<string>? _completed;
@@ -21,6 +21,13 @@ public sealed class ScreenRecorderLibRecorder : IScreenRecorder
     public ScreenRecorderLibRecorder(RecorderSettings settings) => _settings = settings;
 
     public bool IsRecording => _recorder is not null;
+
+    /// <summary>録画の設定。録画中に変えた場合は次の録画から反映される。</summary>
+    public RecorderSettings Settings
+    {
+        get => _settings;
+        set => _settings = value;
+    }
 
     public async Task<DateTimeOffset> StartAsync(string outputPath, CancellationToken ct = default)
     {
@@ -143,11 +150,15 @@ public sealed class ScreenRecorderLibRecorder : IScreenRecorder
             MouseOptions = new MouseOptions { IsMousePointerEnabled = false },
         };
 
-        // 既定の再生デバイス（ゲーム音）と録音デバイス（マイク）
+        // 再生デバイス（ゲーム音）と録音デバイス（マイク）。指定がない・抜かれている場合は既定のデバイス
         if (_settings.CaptureSystemAudio)
-            options.AudioOptions.AudioSources.Add(LoopbackAudioSource.Default);
+            options.AudioOptions.AudioSources.Add(IsConnected(_settings.SystemAudioDeviceId, AudioDevices.GetOutputDevices())
+                ? new LoopbackAudioSource(_settings.SystemAudioDeviceId)
+                : LoopbackAudioSource.Default);
         if (_settings.CaptureMicrophone)
-            options.AudioOptions.AudioSources.Add(CaptureAudioSource.Default);
+            options.AudioOptions.AudioSources.Add(IsConnected(_settings.MicrophoneDeviceId, AudioDevices.GetInputDevices())
+                ? new CaptureAudioSource(_settings.MicrophoneDeviceId)
+                : CaptureAudioSource.Default);
 
         if (_settings.EngineLogPath is { } logPath)
             options.LogOptions = new LogOptions { IsLogEnabled = true, LogFilePath = logPath, LogSeverityLevel = LogLevel.Debug };
@@ -165,4 +176,7 @@ public sealed class ScreenRecorderLibRecorder : IScreenRecorder
 
         return options;
     }
+
+    private static bool IsConnected(string? deviceId, IReadOnlyList<AudioDeviceInfo> devices) =>
+        deviceId is not null && devices.Any(d => d.Id == deviceId);
 }

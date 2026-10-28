@@ -1,0 +1,78 @@
+﻿<Window x:Class="ValoRecorder.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:ValoRecorder.App.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:SettingsViewModel}"
+        Title="設定 - ValoRecorder" Width="600" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app.ico"
+        Background="{StaticResource Ground}" Foreground="{StaticResource Text}"
+        FontFamily="{StaticResource UiFont}" FontSize="14"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Soft}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Dim}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="20">
+        <!-- 録画の音声 -->
+        <Border Style="{StaticResource PanelBorder}" Padding="18,16">
+            <StackPanel>
+                <TextBlock Text="録画の音声" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+
+                <TextBlock Text="ゲーム音を録音する出力デバイス" Style="{StaticResource Label}" />
+                <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutput}" DisplayMemberPath="Name" />
+                <TextBlock Style="{StaticResource Hint}" Text="このデバイスから流れている音（ゲーム音・ボイスチャットなど）を録画に入れます。" />
+
+                <CheckBox Content="マイクの音を録画に含める" IsChecked="{Binding CaptureMicrophone}" Margin="0,18,0,10" />
+                <TextBlock Text="マイク（入力デバイス）" Style="{StaticResource Label}" />
+                <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding SelectedInput}" DisplayMemberPath="Name"
+                          IsEnabled="{Binding CaptureMicrophone}" />
+            </StackPanel>
+        </Border>
+
+        <!-- 保存先と容量 -->
+        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,14,0,0">
+            <StackPanel>
+                <TextBlock Text="保存" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+
+                <TextBlock Text="動画の保存先" Style="{StaticResource Label}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="参照…" Margin="8,0,0,0" Click="OnBrowseFolder" />
+                    <TextBox Text="{Binding RecordingsRoot}" IsReadOnly="True" ToolTip="{Binding RecordingsRoot}" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource Hint}" Text="変更すると次の試合から新しい保存先に録画します。既存の録画は移動しません。" />
+
+                <CheckBox Content="動画の容量を制限する" IsChecked="{Binding LimitStorage}" Margin="0,18,0,10" />
+                <StackPanel Orientation="Horizontal" IsEnabled="{Binding LimitStorage}">
+                    <TextBlock Text="上限" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBox Text="{Binding StorageLimitGbText, UpdateSourceTrigger=PropertyChanged}" Width="90" TextAlignment="Right"
+                             FontFamily="{StaticResource NumFont}" InputScope="Number" />
+                    <TextBlock Text="GB" Foreground="{StaticResource Soft}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="合計が上限を超えると、古い試合から自動的に削除します。ブックマーク（☆）した試合は削除しません。" />
+                <TextBlock Style="{StaticResource Hint}" Text="{Binding UsageText}" FontFamily="{StaticResource UiFont}" />
+            </StackPanel>
+        </Border>
+
+        <DockPanel Margin="0,16,0,0" LastChildFill="False">
+            <Button DockPanel.Dock="Right" Content="キャンセル" IsCancel="True" Width="100" Margin="8,0,0,0" />
+            <Button DockPanel.Dock="Right" Content="保存" Style="{StaticResource PrimaryButton}" IsDefault="True" Width="100" Click="OnSave" />
+            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Death}" FontSize="12" VerticalAlignment="Center"
+                       TextWrapping="Wrap" MaxWidth="320" />
+        </DockPanel>
+    </StackPanel>
+</Window>

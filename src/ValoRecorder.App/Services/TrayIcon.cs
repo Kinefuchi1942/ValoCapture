@@ -23,7 +23,7 @@ public sealed class TrayIcon : IDisposable
 
     /// <param name="isQueueSelected">録画対象に含まれているか。</param>
     /// <param name="toggleQueue">録画対象の切り替え（キュー ID, 含めるか）。</param>
-    public TrayIcon(Action openViewer, Action openFolder, Action exit,
+    public TrayIcon(Action openViewer, Action openFolder, Action openSettings, Action exit,
         Func<string, bool> isQueueSelected, Action<string, bool> toggleQueue)
     {
         _statusItem = new ToolStripMenuItem("起動中…") { Enabled = false };
@@ -48,6 +48,7 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add("録画を見る", null, (_, _) => openViewer());
         menu.Items.Add("録画フォルダを開く", null, (_, _) => openFolder());
         menu.Items.Add(queues);
+        menu.Items.Add("設定…", null, (_, _) => openSettings());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => exit());
 

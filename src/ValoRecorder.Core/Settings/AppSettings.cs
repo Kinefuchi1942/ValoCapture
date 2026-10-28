@@ -20,6 +20,15 @@ public sealed class AppSettings
     public int OutputWidth { get; set; } = 1920;
     public int OutputHeight { get; set; } = 1080;
     public bool CaptureMicrophone { get; set; }
+
+    /// <summary>ゲーム音を録音する再生デバイスの ID。null なら Windows の既定のデバイス。</summary>
+    public string? OutputDeviceId { get; set; }
+
+    /// <summary>マイクの録音デバイスの ID。null なら Windows の既定のデバイス。</summary>
+    public string? InputDeviceId { get; set; }
+
+    /// <summary>録画全体の容量の上限（GB）。超えたら古い試合から削除する（ブックマークは残す）。0 なら無制限。</summary>
+    public int StorageLimitGb { get; set; }
     public long DefaultOffsetMs { get; set; } = SessionOrchestrator.CalibratedOffsetMs;
 
     /// <summary>ビューアの再生音量（0〜1）。</summary>
@@ -54,5 +63,7 @@ public sealed class AppSettings
         BitrateKbps = BitrateKbps,
         OutputSize = (OutputWidth, OutputHeight),
         CaptureMicrophone = CaptureMicrophone,
+        SystemAudioDeviceId = OutputDeviceId,
+        MicrophoneDeviceId = InputDeviceId,
     };
 }

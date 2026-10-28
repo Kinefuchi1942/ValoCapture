@@ -29,6 +29,10 @@ public sealed record RecorderSettings
     public string? MonitorDeviceName { get; init; }
     public bool CaptureSystemAudio { get; init; } = true;
     public bool CaptureMicrophone { get; init; }
+    /// <summary>ゲーム音を録音する再生デバイスの ID。null または見つからなければ既定のデバイス。</summary>
+    public string? SystemAudioDeviceId { get; init; }
+    /// <summary>マイクの録音デバイスの ID。null または見つからなければ既定のデバイス。</summary>
+    public string? MicrophoneDeviceId { get; init; }
     /// <summary>録画エンジン内部のログの出力先（調査用）。null なら出さない。</summary>
     public string? EngineLogPath { get; init; }
 }

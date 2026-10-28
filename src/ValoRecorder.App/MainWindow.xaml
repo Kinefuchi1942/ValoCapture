@@ -17,6 +17,34 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <!-- アイコンは Windows 標準のアイコンフォント -->
         <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+        <!-- ブックマーク（☆）。オンの試合は容量制限で自動削除されない -->
+        <Style x:Key="BookmarkToggle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{StaticResource Dim}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTip" Value="ブックマーク（容量制限で削除しない）" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent" Padding="2">
+                            <TextBlock x:Name="Star" Text="&#xE734;" FontFamily="{StaticResource IconFont}" FontSize="{TemplateBinding FontSize}"
+                                       Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Star" Property="Text" Value="&#xE735;" />
+                                <Setter Property="Foreground" Value="#F2C14E" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="Glyph" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
             <Setter Property="FontSize" Value="14" />
@@ -83,8 +111,8 @@
             </Border>
 
             <DockPanel DockPanel.Dock="Top" Margin="4,14,0,8">
-                <Button DockPanel.Dock="Right" Style="{StaticResource SmallButton}" Click="OnChooseFolder" ToolTip="録画フォルダを選ぶ">
-                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE838;" FontSize="12" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource SmallButton}" Command="{Binding OpenSettingsCommand}" ToolTip="設定">
+                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE713;" FontSize="12" />
                 </Button>
                 <Button DockPanel.Dock="Right" Style="{StaticResource SmallButton}" Command="{Binding ReloadCommand}" ToolTip="再読み込み" Margin="0,0,4,0">
                     <TextBlock Style="{StaticResource Glyph}" Text="&#xE72C;" FontSize="12" />
@@ -100,6 +128,8 @@
                     <DataTemplate DataType="vm:SessionItemViewModel">
                         <StackPanel>
                             <DockPanel>
+                                <ToggleButton DockPanel.Dock="Right" Style="{StaticResource BookmarkToggle}" IsChecked="{Binding IsBookmarked, Mode=OneWay}"
+                                              Command="{Binding ToggleBookmarkCommand}" Margin="6,0,0,0" />
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding DateText}" Style="{StaticResource Num}"
                                            Foreground="{StaticResource Dim}" FontSize="11" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding MapName}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
@@ -175,6 +205,8 @@
                     <Border Style="{StaticResource Chip}" Margin="6,0,0,0">
                         <TextBlock Text="{Binding DateText}" Style="{StaticResource Num}" FontSize="12" Foreground="{StaticResource Soft}" />
                     </Border>
+                    <ToggleButton Style="{StaticResource BookmarkToggle}" IsChecked="{Binding IsBookmarked, Mode=OneWay}"
+                                  Command="{Binding ToggleBookmarkCommand}" FontSize="18" Margin="10,0,0,0" />
                 </StackPanel>
             </DockPanel>
 

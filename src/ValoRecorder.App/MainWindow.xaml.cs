@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using Microsoft.Win32;
 using ValoRecorder.App.ViewModels;
 
 namespace ValoRecorder.App;
@@ -210,12 +209,6 @@ public partial class MainWindow : Window
             ResizeMode = _restoreResize;
             WindowState = _restoreState;
         }
-    }
-
-    private void OnChooseFolder(object sender, RoutedEventArgs e)
-    {
-        var dialog = new OpenFolderDialog { Title = "録画フォルダを選択", InitialDirectory = _vm.RecordingsRoot };
-        if (dialog.ShowDialog(this) == true) _vm.RecordingsRoot = dialog.FolderName;
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)

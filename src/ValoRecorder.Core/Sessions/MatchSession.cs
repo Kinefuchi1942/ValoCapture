@@ -16,6 +16,11 @@ public sealed class MatchSession
     public const string VideoFile = "video.mp4";
     public const string MatchFile = "match.json";
     public const string TimelineFile = "timeline.json";
+    /// <summary>
+    /// ブックマークの目印（中身は空）。録画中・イベント取得中は録画側が session.json を書き直すので、
+    /// session.json には入れず別ファイルにする。
+    /// </summary>
+    public const string BookmarkFile = "bookmark";
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -82,6 +87,16 @@ public sealed class MatchSession
         SaveTimeline(timeline);
         Save();
         return timeline;
+    }
+
+    /// <summary>ブックマークした試合は容量制限による自動削除の対象にしない。</summary>
+    [JsonIgnore] public bool IsBookmarked => File.Exists(Path.Combine(Directory, BookmarkFile));
+
+    public void SetBookmarked(bool bookmarked)
+    {
+        var path = Path.Combine(Directory, BookmarkFile);
+        if (bookmarked) File.WriteAllBytes(path, []);
+        else File.Delete(path);
     }
 
     [JsonIgnore] public bool HasMatchDetails => File.Exists(Path.Combine(Directory, MatchFile));

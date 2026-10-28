@@ -26,6 +26,8 @@ public partial class App : Application
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _exiting;
     private readonly HashSet<string> _notifiedStarts = [];
+    private SettingsWindow? _settingsWindow;
+    private int _cleanupRunning;
     // 音量スライダーを動かしている間に何度も保存しないよう、止まってから保存する
     private readonly DispatcherTimer _volumeSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
 
@@ -50,6 +52,7 @@ public partial class App : Application
 
         _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume);
         _vm.PropertyChanged += OnViewModelPropertyChanged;
+        _vm.SettingsRequested += OpenSettings;
         _volumeSaveTimer.Tick += (_, _) => { _volumeSaveTimer.Stop(); _settings.Save(); };
 
         _host = new RecorderHost(_settings);
@@ -57,7 +60,7 @@ public partial class App : Application
         _host.StateChanged += _ => Dispatcher.BeginInvoke(UpdateStatus);
         _host.SessionChanged += s => Dispatcher.BeginInvoke(() => OnSessionChanged(s));
 
-        _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, () => _ = ExitAsync(), IsQueueSelected, ToggleQueue);
+        _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, OpenSettings, () => _ = ExitAsync(), IsQueueSelected, ToggleQueue);
 
         _window = new MainWindow(_vm);
         _window.Closing += OnWindowClosing;
@@ -69,6 +72,7 @@ public partial class App : Application
 
         _host.Start();
         WriteLog($"起動: 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)}");
+        EnforceStorageLimit();
     }
 
     private void OnSessionChanged(MatchSession session)
@@ -85,6 +89,7 @@ public partial class App : Application
                 break;
             case SessionStatus.FetchingDetails:
                 _tray!.Notify("録画を停止しました", $"{title} — 試合が終わるとイベントが追加されます");
+                EnforceStorageLimit();
                 break;
             case SessionStatus.Ready:
                 _tray!.Notify("イベントを記録しました", title);
@@ -158,6 +163,76 @@ public partial class App : Application
                 _volumeSaveTimer.Start();
                 break;
         }
+    }
+
+    private void OpenSettings()
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = new SettingsWindow(_settings);
+        if (_window!.IsVisible) _settingsWindow.Owner = _window;
+        else _settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
+        var saved = _settingsWindow.ShowDialog() == true;
+        _settingsWindow = null;
+        if (!saved) return;
+
+        _settings.Save();
+        _host!.ApplySettings(_settings);
+        // 一覧の読み直しと保存先の反映（OnViewModelPropertyChanged）
+        _vm!.RecordingsRoot = _settings.RecordingsRoot;
+        WriteLog($"設定を変更: 録画先={_settings.RecordingsRoot} 出力={_settings.OutputDeviceId ?? "既定"} " +
+                 $"マイク={(_settings.CaptureMicrophone ? _settings.InputDeviceId ?? "既定" : "なし")} 上限={_settings.StorageLimitGb}GB");
+        EnforceStorageLimit();
+    }
+
+    /// <summary>
+    /// 録画の合計が上限を超えていれば、古い試合から削除する。
+    /// 録画中・イベント取得中の試合と、ビューアで開いている試合は残す。
+    /// </summary>
+    private void EnforceStorageLimit()
+    {
+        if (_settings.StorageLimitGb <= 0) return;
+        // 前回の削除がまだ終わっていなければ重ねて走らせない
+        if (Interlocked.Exchange(ref _cleanupRunning, 1) == 1) return;
+
+        var root = _settings.RecordingsRoot;
+        var maxBytes = _settings.StorageLimitGb * RecordingStorage.BytesPerGb;
+        var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_host?.CurrentSession?.Directory is { } recording) keep.Add(recording);
+        if (_vm?.SelectedSession?.Session.Directory is { } viewing) keep.Add(viewing);
+        // 試合詳細の取得は最大 20 分ほど続く。それより古いまま止まっているものは異常終了の残りなので消してよい
+        var busySince = DateTimeOffset.UtcNow - TimeSpan.FromHours(6);
+
+        Task.Run(() =>
+        {
+            try
+            {
+                return RecordingStorage.EnforceLimit(root, maxBytes, s =>
+                    !keep.Contains(s.Directory) &&
+                    !(s.Status is SessionStatus.Recording or SessionStatus.FetchingDetails && s.DetectedAt > busySince));
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _cleanupRunning, 0);
+            }
+        }).ContinueWith(t =>
+        {
+            if (t.Exception is { } ex)
+            {
+                WriteLog($"容量制限による削除に失敗: {ex.InnerException?.Message}");
+                return;
+            }
+            if (t.Result.Count == 0) return;
+
+            foreach (var s in t.Result) WriteLog($"容量制限により削除: {s.Directory}");
+            _vm!.Reload();
+            _tray!.Notify("古い録画を削除しました", $"容量の上限（{_settings.StorageLimitGb} GB）を超えたため {t.Result.Count} 試合を削除しました");
+        }, TaskScheduler.FromCurrentSynchronizationContext());
     }
 
     private void ShowViewer()

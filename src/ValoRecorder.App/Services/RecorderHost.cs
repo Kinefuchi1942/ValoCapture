@@ -14,13 +14,14 @@ public sealed class RecorderHost : IAsyncDisposable
 
     private readonly GameStateMonitor _monitor = new();
     private readonly SessionOrchestrator _orchestrator;
+    private readonly ScreenRecorderLibRecorder _recorder;
     private readonly CancellationTokenSource _cts = new();
     private Task? _loop;
 
     public RecorderHost(AppSettings settings)
     {
-        var recorder = new ScreenRecorderLibRecorder(settings.ToRecorderSettings());
-        _orchestrator = new SessionOrchestrator(_monitor, recorder, new MatchTarget(settings.TargetQueues), settings.RecordingsRoot)
+        _recorder = new ScreenRecorderLibRecorder(settings.ToRecorderSettings());
+        _orchestrator = new SessionOrchestrator(_monitor, _recorder, new MatchTarget(settings.TargetQueues), settings.RecordingsRoot)
         {
             DefaultOffsetMs = settings.DefaultOffsetMs,
         };
@@ -52,6 +53,13 @@ public sealed class RecorderHost : IAsyncDisposable
     {
         get => _orchestrator.OutputRoot;
         set => _orchestrator.OutputRoot = value;
+    }
+
+    /// <summary>録画の設定（音声デバイスなど）と保存先を変える。録画中なら次の試合から反映される。</summary>
+    public void ApplySettings(AppSettings settings)
+    {
+        _recorder.Settings = settings.ToRecorderSettings();
+        OutputRoot = settings.RecordingsRoot;
     }
 
     public void Start() => _loop = Task.Run(RunAsync);

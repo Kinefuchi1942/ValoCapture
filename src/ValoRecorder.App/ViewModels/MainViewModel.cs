@@ -23,6 +23,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>動画の再生位置を変えてほしいとき（View が MediaElement に反映する）。</summary>
     public event Action<TimeSpan>? SeekRequested;
 
+    /// <summary>設定画面を開いてほしいとき（App が開く）。</summary>
+    public event Action? SettingsRequested;
+
     public ObservableCollection<SessionItemViewModel> Sessions { get; } = [];
 
     /// <summary>フィルター適用後のイベント（一覧とタイムラインの両方に使う）。</summary>
@@ -113,6 +116,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleMute() => IsMuted = !IsMuted;
+
+    [RelayCommand]
+    private void OpenSettings() => SettingsRequested?.Invoke();
 
     /// <summary>現在位置より後の最初のイベント（なければ null）。</summary>
     public EventItemViewModel? NextEvent(TimeSpan position) =>

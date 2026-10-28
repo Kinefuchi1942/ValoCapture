@@ -1,5 +1,6 @@
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using ValoRecorder.Core.Game;
 using ValoRecorder.Core.Sessions;
 
@@ -57,4 +58,14 @@ public sealed partial class SessionItemViewModel : ObservableObject
 
     public string VideoPath => Session.VideoPath;
     public bool HasVideo => File.Exists(VideoPath);
+
+    /// <summary>ブックマークした試合は容量制限で自動削除されない。</summary>
+    public bool IsBookmarked => Session.IsBookmarked;
+
+    [RelayCommand]
+    private void ToggleBookmark()
+    {
+        Session.SetBookmarked(!IsBookmarked);
+        OnPropertyChanged(nameof(IsBookmarked));
+    }
 }
