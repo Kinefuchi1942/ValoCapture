@@ -17,7 +17,8 @@ public sealed class TrayIcon : IDisposable
 
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
-    private readonly Icon _idleIcon = CreateDotIcon(Color.FromArgb(0x9a, 0xa0, 0xab));
+    // 待機中はアプリアイコン、録画中は状態がひと目で分かる赤丸
+    private readonly Icon _idleIcon = LoadAppIcon();
     private readonly Icon _recordingIcon = CreateDotIcon(Color.FromArgb(0xff, 0x46, 0x55));
 
     /// <param name="isQueueSelected">録画対象に含まれているか。</param>
@@ -78,6 +79,12 @@ public sealed class TrayIcon : IDisposable
         _icon.Dispose();
         _idleIcon.Dispose();
         _recordingIcon.Dispose();
+    }
+
+    private static Icon LoadAppIcon()
+    {
+        using var stream = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico")).Stream;
+        return new Icon(stream, SystemInformation.SmallIconSize);
     }
 
     private static Icon CreateDotIcon(Color color)

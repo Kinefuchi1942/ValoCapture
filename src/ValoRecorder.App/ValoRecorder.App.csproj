@@ -18,7 +18,13 @@
     <UseWPF>true</UseWPF>
     <!-- タスクトレイの NotifyIcon のためだけに使う -->
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- tools/make_icon.py で生成 -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- WPF と型名が衝突するので WinForms / System.Drawing は明示的に using する -->

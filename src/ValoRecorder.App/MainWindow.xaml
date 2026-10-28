@@ -7,7 +7,7 @@
         xmlns:controls="clr-namespace:ValoRecorder.App.Controls"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:MainViewModel}"
-        Title="ValoRecorder" Width="1500" Height="860"
+        Title="ValoRecorder" Width="1500" Height="860" Icon="Assets/app.ico"
         Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
         PreviewKeyDown="OnPreviewKeyDown">
     <Window.Resources>
