@@ -71,6 +71,7 @@ public partial class App : Application
         UpdateStatus();
 
         _host.Start();
+        StartupRegistration.RefreshIfEnabled();
         WriteLog($"起動: 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)}");
         EnforceStorageLimit();
     }

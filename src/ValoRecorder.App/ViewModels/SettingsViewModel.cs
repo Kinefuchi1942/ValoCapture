@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using ValoRecorder.App.Services;
 using ValoRecorder.Core.Sessions;
 using ValoRecorder.Core.Settings;
 using ValoRecorder.Recording;
@@ -21,6 +22,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         InputDevices = BuildOptions(AudioDevices.GetInputDevices(), settings.InputDeviceId);
         _selectedOutput = OutputDevices.First(o => o.Id == settings.OutputDeviceId);
         _selectedInput = InputDevices.First(o => o.Id == settings.InputDeviceId);
+        _launchAtStartup = StartupRegistration.IsEnabled;
         _captureMicrophone = settings.CaptureMicrophone;
         _recordingsRoot = settings.RecordingsRoot;
         _limitStorage = settings.StorageLimitGb > 0;
@@ -34,6 +36,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<DeviceOption> OutputDevices { get; }
     public IReadOnlyList<DeviceOption> InputDevices { get; }
 
+    /// <summary>Windows へのサインイン時に自動起動するか（設定ファイルではなくレジストリに保存する）。</summary>
+    [ObservableProperty] private bool _launchAtStartup;
     [ObservableProperty] private DeviceOption _selectedOutput;
     [ObservableProperty] private DeviceOption _selectedInput;
     [ObservableProperty] private bool _captureMicrophone;

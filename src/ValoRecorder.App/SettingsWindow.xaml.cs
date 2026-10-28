@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Win32;
+using ValoRecorder.App.Services;
 using ValoRecorder.App.ViewModels;
 using ValoRecorder.Core.Settings;
 
@@ -26,6 +27,18 @@ public partial class SettingsWindow : Window
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
-        if (_vm.TryApply(_settings)) DialogResult = true;
+        if (!_vm.TryApply(_settings)) return;
+
+        try
+        {
+            if (_vm.LaunchAtStartup != StartupRegistration.IsEnabled)
+                StartupRegistration.SetEnabled(_vm.LaunchAtStartup);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+        {
+            _vm.Error = $"自動起動の設定を変更できませんでした: {ex.Message}";
+            return;
+        }
+        DialogResult = true;
     }
 }

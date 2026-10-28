@@ -27,6 +27,15 @@
     </Window.Resources>
 
     <StackPanel Margin="20">
+        <!-- 起動 -->
+        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock Text="起動" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                <CheckBox Content="Windows の起動時に自動で起動する" IsChecked="{Binding LaunchAtStartup}" />
+                <TextBlock Style="{StaticResource Hint}" Text="サインインするとウィンドウを開かずにタスクトレイで待機し、試合を自動で録画します。" />
+            </StackPanel>
+        </Border>
+
         <!-- 録画の音声 -->
         <Border Style="{StaticResource PanelBorder}" Padding="18,16">
             <StackPanel>
