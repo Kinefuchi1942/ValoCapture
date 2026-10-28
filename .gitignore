@@ -1,0 +1,10 @@
+# ビルド成果物
+bin/
+obj/
+.vs/
+*.user
+
+# 録画データ・試合データ（個人のプレイデータ）
+recordings/
+match-*.json
+probe-log.jsonl
