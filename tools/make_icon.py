@@ -1,17 +1,16 @@
 """アプリアイコン（src/ValoRecorder.App/Assets/app.ico）を生成する。
 
-デザイン: 暗い角丸の背景に、アプリのタイムラインを大きく描く（キル=緑、デス=赤の印、白い再生位置）。
-再生位置のつまみを小さな赤丸にして「録画」を控えめに示す。
-32px 以下は印を 3 本に減らし、太く描く。
+デザイン: 暗い角丸の背景に、左の腕がキル（緑）・右の腕がデス（赤）の「V」を描き、下に再生バーを置く。
+32px 以下は再生バーを省き、V を太く大きく描く。
 usage: python tools/make_icon.py
 """
 from pathlib import Path
 from PIL import Image, ImageDraw
 
 S = 1024  # 1024px で描いて各サイズに縮小する
-BG_TOP, BG_BOTTOM = (0x2A, 0x2E, 0x37), (0x14, 0x16, 0x1B)
-TRACK, PLAYED = (0x3A, 0x40, 0x4C), (0x55, 0x5D, 0x6C)
-GREEN, RED, WHITE = (0x4A, 0xDE, 0x9B), (0xFF, 0x46, 0x55), (0xFF, 0xFF, 0xFF)
+BG_TOP, BG_BOTTOM = (0x22, 0x2B, 0x38), (0x10, 0x15, 0x1C)
+TRACK = (0x3A, 0x48, 0x5A)
+GREEN, RED, WHITE = (0x6F, 0xD3, 0xA8), (0xFF, 0x46, 0x55), (0xFF, 0xFF, 0xFF)
 
 out_dir = Path(__file__).resolve().parent.parent / "src" / "ValoRecorder.App" / "Assets"
 
@@ -23,50 +22,40 @@ def background() -> Image.Image:
         t = y / (S - 1)
         d.line([(0, y), (S, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM)) + (255,))
     mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([24, 24, S - 24, S - 24], radius=220, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle([24, 24, S - 24, S - 24], radius=230, fill=255)
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     img.paste(grad, mask=mask)
     return img
 
 
-def timeline(track: tuple[int, int, int, int], markers: list[tuple[int, int, int, tuple]], marker_w: int,
-             playhead_x: int, playhead: tuple[int, int, int], knob: int) -> Image.Image:
-    """track=(x0, y0, x1, y1)、markers=[(x, 上端, 下端, 色)]、playhead=(幅, 上端, 下端)、knob=つまみの半径（0 で無し）"""
+def pill(d: ImageDraw.ImageDraw, p0: tuple[int, int], p1: tuple[int, int], w: int, fill: tuple) -> None:
+    """両端の丸い太線"""
+    d.line([p0, p1], fill=fill, width=w)
+    for x, y in (p0, p1):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=fill)
+
+
+def v_mark(left: tuple[int, int], right: tuple[int, int], tip: tuple[int, int], w: int,
+           bar: tuple[int, int, int, int] | None = None, played_x: int = 0) -> Image.Image:
+    """left/right=V の腕の上端、tip=V の先端、bar=再生バー (x0, y0, x1, y1)（None で無し）、played_x=再生済みの右端"""
     img = background()
     d = ImageDraw.Draw(img)
-    x0, y0, x1, y1 = track
-    radius = (y1 - y0) // 2
-    d.rounded_rectangle(track, radius=radius, fill=TRACK)
-    d.rounded_rectangle([x0, y0, playhead_x, y1], radius=radius, fill=PLAYED)
-
-    for x, top, bottom, color in markers:
-        d.rounded_rectangle([x - marker_w // 2, top, x + marker_w // 2, bottom], radius=marker_w // 2, fill=color)
-
-    w, top, bottom = playhead
-    d.rounded_rectangle([playhead_x - w // 2, top, playhead_x + w // 2, bottom], radius=w // 2, fill=WHITE)
-    if knob:
-        d.ellipse([playhead_x - knob, top - knob, playhead_x + knob, top + knob], fill=WHITE)
-        inner = knob * 2 // 3
-        d.ellipse([playhead_x - inner, top - inner, playhead_x + inner, top + inner], fill=RED)
+    pill(d, left, tip, w, GREEN)
+    pill(d, right, tip, w, RED)  # 赤を後に描いて先端で緑に重ねる
+    if bar:
+        x0, y0, x1, y1 = bar
+        radius = (y1 - y0) // 2
+        d.rounded_rectangle(bar, radius=radius, fill=TRACK)
+        d.rounded_rectangle([x0, y0, played_x, y1], radius=radius, fill=WHITE)
     return img
 
 
-# 48px 以上: 印 6 本（高さに差をつけてリズムを出す）
-large = timeline(
-    track=(150, 470, 874, 554),
-    markers=[(250, 360, 664, GREEN), (338, 300, 724, RED), (430, 380, 644, GREEN),
-             (640, 330, 694, GREEN), (730, 390, 634, RED), (812, 350, 674, GREEN)],
-    marker_w=48,
-    playhead_x=535, playhead=(26, 270, 790), knob=70,
-)
+# 48px 以上: V + 再生バー
+large = v_mark(left=(250, 230), right=(774, 230), tip=(512, 650), w=120,
+               bar=(190, 770, 834, 840), played_x=512)
 
-# 32px 以下: 印 3 本を太く、つまみ無し
-small = timeline(
-    track=(130, 440, 894, 584),
-    markers=[(290, 270, 754, GREEN), (450, 330, 694, RED), (790, 290, 734, GREEN)],
-    marker_w=110,
-    playhead_x=620, playhead=(60, 190, 834), knob=0,
-)
+# 32px 以下: 再生バーを省き、V を太く大きく
+small = v_mark(left=(220, 220), right=(804, 220), tip=(512, 790), w=170)
 
 sizes = [16, 24, 32, 48, 64, 128, 256]
 frames = [(small if s <= 32 else large).resize((s, s), Image.LANCZOS) for s in sizes]
