@@ -1,14 +1,14 @@
 # クラウド環境での開発の流れ
 
-ValoRecorder は Windows 専用のアプリ（WPF / WinForms / ScreenRecorderLib）なので、作業を **クラウド（Claude Code のクラウドセッション、Linux）** と **手元の Windows PC** に分けて進める。
+ValoCapture は Windows 専用のアプリ（WPF / WinForms / ScreenRecorderLib）なので、作業を **クラウド（Claude Code のクラウドセッション、Linux）** と **手元の Windows PC** に分けて進める。
 
 ## 役割分担
 
 | 作業 | クラウド | 手元の Windows |
 | --- | :---: | :---: |
 | コードの変更（全プロジェクト） | ○ | ○ |
-| `ValoRecorder.Core` のビルド | ○ | ○ |
-| `ValoRecorder.Core.Tests` の実行 | ○ | ○ |
+| `ValoCapture.Core` のビルド | ○ | ○ |
+| `ValoCapture.Core.Tests` の実行 | ○ | ○ |
 | App / Recording / Probe のビルド（net8.0-windows） | × | ○ |
 | アプリを起動しての動作確認（録画・UI・ゲーム検出） | × | ○ |
 | exe と配布用 zip の作成（`BuildExe.bat`） | × | ○ |
@@ -20,20 +20,20 @@ ValoRecorder は Windows 専用のアプリ（WPF / WinForms / ScreenRecorderLib
 
 | プロジェクト | ターゲット | クラウド |
 | --- | --- | :---: |
-| `src/ValoRecorder.Core` | net8.0 | ○ |
-| `tests/ValoRecorder.Core.Tests` | net8.0 | ○ |
-| `src/ValoRecorder.Recording` | net8.0-windows | × |
-| `src/ValoRecorder.App` | net8.0-windows | × |
-| `src/ValoRecorder.Probe` | net8.0-windows | × |
+| `src/ValoCapture.Core` | net8.0 | ○ |
+| `tests/ValoCapture.Core.Tests` | net8.0 | ○ |
+| `src/ValoCapture.Recording` | net8.0-windows | × |
+| `src/ValoCapture.App` | net8.0-windows | × |
+| `src/ValoCapture.Probe` | net8.0-windows | × |
 
-Windows 専用プロジェクトのコードもクラウドで書き換えられるが、コンパイルが通るかは手元で確かめるまで分からない。ロジックはなるべく `ValoRecorder.Core` に置き、テストで確認できる形にする。
+Windows 専用プロジェクトのコードもクラウドで書き換えられるが、コンパイルが通るかは手元で確かめるまで分からない。ロジックはなるべく `ValoCapture.Core` に置き、テストで確認できる形にする。
 
 ## 1 回の作業の流れ
 
 1. **クラウドで依頼する**
    クラウドセッションで、やりたいことを日本語で伝える。
 2. **クラウドで変更とテスト**
-   Claude がコードを変更し、`dotnet test tests/ValoRecorder.Core.Tests` を実行する。
+   Claude がコードを変更し、`dotnet test tests/ValoCapture.Core.Tests` を実行する。
 3. **クラウドでコミット・プッシュ**
    コミットメッセージは日本語。現在は `main` に直接プッシュしている。
 4. **手元で取り込む**
@@ -41,11 +41,11 @@ Windows 専用プロジェクトのコードもクラウドで書き換えられ
    git pull
    ```
 5. **手元で動作確認**
-   `ValoRecorder.bat` をダブルクリックすると、Release ビルドしてから起動する（起動中のときはビルドせずにそのまま起動する）。
+   `ValoCapture.bat` をダブルクリックすると、Release ビルドしてから起動する（起動中のときはビルドせずにそのまま起動する）。
 6. **問題があればクラウドへ戻す**
    ビルドエラー・例外・おかしな挙動は、エラーメッセージやログをそのままクラウドセッションに貼って修正を依頼し、2 に戻る。
 7. **配布するとき**
-   `src/ValoRecorder.App/ValoRecorder.App.csproj` の `<Version>` を上げて（クラウドで頼んでもよい）、手元で `BuildExe.bat` をダブルクリックする。`dist/ValoRecorder.exe` と `dist/ValoRecorder-<バージョン>.zip` ができる。
+   `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げて（クラウドで頼んでもよい）、手元で `BuildExe.bat` をダブルクリックする。`dist/ValoCapture.exe` と `dist/ValoCapture-<バージョン>.zip` ができる。
 
 ### 手元で直接変更したとき
 

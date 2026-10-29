@@ -1,4 +1,4 @@
-"""アプリアイコン（src/ValoRecorder.App/Assets/app.ico）を生成する。
+"""アプリアイコン（src/ValoCapture.App/Assets/app.ico）を生成する。
 
 デザイン: 暗い角丸の背景に、左の腕がキル（緑）・右の腕がデス（赤）の「V」を描き、下に再生バーを置く。
 32px 以下は再生バーを省き、V を太く大きく描く。
@@ -12,7 +12,7 @@ BG_TOP, BG_BOTTOM = (0x22, 0x2B, 0x38), (0x10, 0x15, 0x1C)
 TRACK = (0x3A, 0x48, 0x5A)
 GREEN, RED, WHITE = (0x6F, 0xD3, 0xA8), (0xFF, 0x46, 0x55), (0xFF, 0xFF, 0xFF)
 
-out_dir = Path(__file__).resolve().parent.parent / "src" / "ValoRecorder.App" / "Assets"
+out_dir = Path(__file__).resolve().parent.parent / "src" / "ValoCapture.App" / "Assets"
 
 
 def background() -> Image.Image:
