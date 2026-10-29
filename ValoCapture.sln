@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E59EE067-689D-4812-96B3-6F1CDE946909}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValoCapture.Core", "src\ValoCapture.Core\ValoCapture.Core.csproj", "{DDA26405-C4EB-4F96-BB81-9FE42457F9F9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValoCapture.Probe", "src\ValoCapture.Probe\ValoCapture.Probe.csproj", "{3B37A8A0-B6BA-4CE0-9CED-19D8AFAD9D02}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E968AE4A-469E-4022-9E64-87DB82FC5DF3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValoCapture.Core.Tests", "tests\ValoCapture.Core.Tests\ValoCapture.Core.Tests.csproj", "{425FFB16-CF06-4799-852B-3EE54FA4C94D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValoCapture.Recording", "src\ValoCapture.Recording\ValoCapture.Recording.csproj", "{C9C100BC-8FF1-442F-B511-9E5E6108C65E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValoCapture.App", "src\ValoCapture.App\ValoCapture.App.csproj", "{13C668CB-CED0-4B24-A8E6-D6C3401F55B7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DDA26405-C4EB-4F96-BB81-9FE42457F9F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DDA26405-C4EB-4F96-BB81-9FE42457F9F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DDA26405-C4EB-4F96-BB81-9FE42457F9F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DDA26405-C4EB-4F96-BB81-9FE42457F9F9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B37A8A0-B6BA-4CE0-9CED-19D8AFAD9D02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B37A8A0-B6BA-4CE0-9CED-19D8AFAD9D02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B37A8A0-B6BA-4CE0-9CED-19D8AFAD9D02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B37A8A0-B6BA-4CE0-9CED-19D8AFAD9D02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{425FFB16-CF06-4799-852B-3EE54FA4C94D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{425FFB16-CF06-4799-852B-3EE54FA4C94D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{425FFB16-CF06-4799-852B-3EE54FA4C94D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{425FFB16-CF06-4799-852B-3EE54FA4C94D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9C100BC-8FF1-442F-B511-9E5E6108C65E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9C100BC-8FF1-442F-B511-9E5E6108C65E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9C100BC-8FF1-442F-B511-9E5E6108C65E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9C100BC-8FF1-442F-B511-9E5E6108C65E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{13C668CB-CED0-4B24-A8E6-D6C3401F55B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{13C668CB-CED0-4B24-A8E6-D6C3401F55B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{13C668CB-CED0-4B24-A8E6-D6C3401F55B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{13C668CB-CED0-4B24-A8E6-D6C3401F55B7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DDA26405-C4EB-4F96-BB81-9FE42457F9F9} = {E59EE067-689D-4812-96B3-6F1CDE946909}
+		{3B37A8A0-B6BA-4CE0-9CED-19D8AFAD9D02} = {E59EE067-689D-4812-96B3-6F1CDE946909}
+		{425FFB16-CF06-4799-852B-3EE54FA4C94D} = {E968AE4A-469E-4022-9E64-87DB82FC5DF3}
+		{C9C100BC-8FF1-442F-B511-9E5E6108C65E} = {E59EE067-689D-4812-96B3-6F1CDE946909}
+		{13C668CB-CED0-4B24-A8E6-D6C3401F55B7} = {E59EE067-689D-4812-96B3-6F1CDE946909}
+	EndGlobalSection
+EndGlobal
