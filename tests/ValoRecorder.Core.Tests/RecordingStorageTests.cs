@@ -25,8 +25,6 @@ public sealed class RecordingStorageTests : IDisposable
         return session;
     }
 
-    private long SessionJsonSize(string name) => new FileInfo(Path.Combine(_root, name, MatchSession.SessionFile)).Length;
-
     private string[] RemainingNames() =>
         MatchSession.LoadAll(_root).Select(s => Path.GetFileName(s.Directory)).Order().ToArray();
 
@@ -46,12 +44,12 @@ public sealed class RecordingStorageTests : IDisposable
     public void OverLimit_DeletesOldestFirstUntilUnderLimit()
     {
         AddSession("old", 30, 1000);
-        AddSession("mid", 20, 1000);
-        AddSession("new", 10, 1000);
-        var perSession = 1000 + SessionJsonSize("old");
+        var mid = AddSession("mid", 20, 1000);
+        var @new = AddSession("new", 10, 1000);
 
-        // 2 試合ぶんまで
-        var deleted = RecordingStorage.EnforceLimit(_root, perSession * 2, _ => true);
+        // 2 試合ぶんまで（session.json は日時の桁数で試合ごとにサイズが変わるので実サイズで決める）
+        var limit = RecordingStorage.GetSize(mid) + RecordingStorage.GetSize(@new);
+        var deleted = RecordingStorage.EnforceLimit(_root, limit, _ => true);
 
         Assert.Equal(["old"], deleted.Select(s => Path.GetFileName(s.Directory)));
         Assert.Equal(["mid", "new"], RemainingNames());
@@ -61,12 +59,13 @@ public sealed class RecordingStorageTests : IDisposable
     [Fact]
     public void BookmarkedSessions_AreKept()
     {
-        AddSession("old", 30, 1000).SetBookmarked(true);
+        var old = AddSession("old", 30, 1000);
+        old.SetBookmarked(true);
         AddSession("mid", 20, 1000);
-        AddSession("new", 10, 1000);
-        var perSession = 1000 + SessionJsonSize("mid");
+        var @new = AddSession("new", 10, 1000);
 
-        var deleted = RecordingStorage.EnforceLimit(_root, perSession * 2, _ => true);
+        var limit = RecordingStorage.GetSize(old) + RecordingStorage.GetSize(@new);
+        var deleted = RecordingStorage.EnforceLimit(_root, limit, _ => true);
 
         Assert.Equal(["mid"], deleted.Select(s => Path.GetFileName(s.Directory)));
         Assert.Equal(["new", "old"], RemainingNames());
