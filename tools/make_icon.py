@@ -1,7 +1,7 @@
 """アプリアイコン（src/ValoCapture.App/Assets/app.ico）を生成する。
 
 デザイン: 暗い角丸の背景に、左の腕がキル（緑）・右の腕がデス（赤）の「V」を描き、下に再生バーを置く。
-32px 以下は再生バーを省き、V を太く大きく描く。
+赤の腕は緑より太くして目立たせる。32px 以下は再生バーを省き、V を太く大きく描く。
 usage: python tools/make_icon.py
 """
 from pathlib import Path
@@ -35,13 +35,14 @@ def pill(d: ImageDraw.ImageDraw, p0: tuple[int, int], p1: tuple[int, int], w: in
         d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=fill)
 
 
-def v_mark(left: tuple[int, int], right: tuple[int, int], tip: tuple[int, int], w: int,
+def v_mark(left: tuple[int, int], right: tuple[int, int], tip: tuple[int, int], w: int, red_w: int,
            bar: tuple[int, int, int, int] | None = None, played_x: int = 0) -> Image.Image:
-    """left/right=V の腕の上端、tip=V の先端、bar=再生バー (x0, y0, x1, y1)（None で無し）、played_x=再生済みの右端"""
+    """left/right=V の腕の上端、tip=V の先端、w=緑の腕の太さ、red_w=赤の腕の太さ、
+    bar=再生バー (x0, y0, x1, y1)（None で無し）、played_x=再生済みの右端"""
     img = background()
     d = ImageDraw.Draw(img)
     pill(d, left, tip, w, GREEN)
-    pill(d, right, tip, w, RED)  # 赤を後に描いて先端で緑に重ねる
+    pill(d, right, tip, red_w, RED)  # 赤を後に描いて先端で緑に重ねる
     if bar:
         x0, y0, x1, y1 = bar
         radius = (y1 - y0) // 2
@@ -51,11 +52,11 @@ def v_mark(left: tuple[int, int], right: tuple[int, int], tip: tuple[int, int], 
 
 
 # 48px 以上: V + 再生バー
-large = v_mark(left=(250, 230), right=(774, 230), tip=(512, 650), w=120,
+large = v_mark(left=(250, 230), right=(774, 230), tip=(512, 650), w=120, red_w=210,
                bar=(190, 770, 834, 840), played_x=512)
 
 # 32px 以下: 再生バーを省き、V を太く大きく
-small = v_mark(left=(220, 220), right=(804, 220), tip=(512, 790), w=170)
+small = v_mark(left=(220, 220), right=(804, 220), tip=(512, 790), w=170, red_w=270)
 
 sizes = [16, 24, 32, 48, 64, 128, 256]
 frames = [(small if s <= 32 else large).resize((s, s), Image.LANCZOS) for s in sizes]
