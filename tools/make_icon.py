@@ -52,11 +52,11 @@ def v_mark(left: tuple[int, int], right: tuple[int, int], tip: tuple[int, int], 
 
 
 # 48px 以上: V + 再生バー
-large = v_mark(left=(250, 230), right=(774, 230), tip=(512, 650), w=120, red_w=170,
+large = v_mark(left=(250, 230), right=(774, 230), tip=(512, 650), w=120, red_w=210,
                bar=(190, 770, 834, 840), played_x=512)
 
 # 32px 以下: 再生バーを省き、V を太く大きく
-small = v_mark(left=(220, 220), right=(804, 220), tip=(512, 790), w=170, red_w=230)
+small = v_mark(left=(220, 220), right=(804, 220), tip=(512, 790), w=170, red_w=270)
 
 sizes = [16, 24, 32, 48, 64, 128, 256]
 frames = [(small if s <= 32 else large).resize((s, s), Image.LANCZOS) for s in sizes]
