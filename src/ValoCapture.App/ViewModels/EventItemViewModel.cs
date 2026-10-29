@@ -1,3 +1,4 @@
+using ValoCapture.Core.Game;
 using ValoCapture.Core.Sessions;
 
 namespace ValoCapture.App.ViewModels;
@@ -12,7 +13,9 @@ public sealed class EventItemViewModel(MatchEvent e, bool isRoundBased, int stre
 
     public string TimeText => VideoTime.ToString(@"mm\:ss");
 
-    public string Label => Type switch
+    public string Label => Opponent is { } opponent ? $"{TypeText}  {opponent}" : TypeText;
+
+    private string TypeText => Type switch
     {
         MatchEventType.Kill => "キル",
         MatchEventType.Death => "デス",
@@ -20,6 +23,14 @@ public sealed class EventItemViewModel(MatchEvent e, bool isRoundBased, int stre
         MatchEventType.RoundStart => $"ラウンド {Event.Round + 1} 開始",
         _ => Type.ToString(),
     };
+
+    /// <summary>相手のエージェント名（キル・アシストはキルされた側、デスはキルした側）。分からなければ null。</summary>
+    private string? Opponent => DisplayNames.Agent(Type switch
+    {
+        MatchEventType.Kill or MatchEventType.Assist => Event.VictimAgent,
+        MatchEventType.Death => Event.KillerAgent,
+        _ => null,
+    });
 
     /// <summary>右端の補足（連続キル、ラウンド番号）。</summary>
     public string Note =>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ValoCapture.Core.Game;
 using ValoCapture.Core.Sessions;
 
 namespace ValoCapture.Core.Tests;
@@ -19,9 +20,14 @@ public class MatchTimelineTests
         finishingDamage = new { damageType = "Weapon", damageItem = "VANDAL" },
     };
 
-    private static string Match(object[]? topKills = null, object[]? rounds = null) => JsonSerializer.Serialize(new
+    private const string Jett = "add6443a-41bd-e414-f6ad-e58d267f4e95";
+    private const string Sage = "569fdd95-4d10-43ab-ca70-79becc718b46";
+    private const string Omen = "8e253930-4c05-31dd-1b6c-968525494517";
+
+    private static string Match(object[]? topKills = null, object[]? rounds = null, object[]? players = null) => JsonSerializer.Serialize(new
     {
         matchInfo = new { matchId = "m1", queueID = "deathmatch", mapId = "/Game/Maps/Triad/Triad", gameStartMillis = GameStart, gameLengthMillis = 300_000 },
+        players = players ?? [],
         kills = topKills,
         roundResults = rounds ?? [],
     });
@@ -86,5 +92,71 @@ public class MatchTimelineTests
         var json = Match(topKills: [Kill(10_000, 9_000, Me, "x")]);
         var t = MatchTimelineBuilder.Build(json, Me, null, null);
         Assert.All(t.Events, e => Assert.Null(e.VideoTimeMs));
+    }
+
+    [Fact]
+    public void KillAndDeath_HaveAgentsOfBothPlayers()
+    {
+        var json = Match(
+            topKills: [Kill(10_000, 9_000, Me, "x"), Kill(20_000, 19_000, "y", Me)],
+            players:
+            [
+                new { subject = Me, characterId = Jett },
+                new { subject = "x", characterId = Sage },
+                new { subject = "y", characterId = Omen },
+            ]);
+
+        var t = MatchTimelineBuilder.Build(json, Me, null, null);
+
+        var kill = t.Events.Single(e => e.Type == MatchEventType.Kill);
+        Assert.Equal((Jett, Sage), (kill.KillerAgent, kill.VictimAgent));
+        var death = t.Events.Single(e => e.Type == MatchEventType.Death);
+        Assert.Equal((Omen, Jett), (death.KillerAgent, death.VictimAgent));
+        Assert.Equal(MatchTimeline.CurrentVersion, t.Version);
+    }
+
+    [Fact]
+    public void NoPlayers_LeavesAgentsNull()
+    {
+        var t = MatchTimelineBuilder.Build(Match(topKills: [Kill(10_000, 9_000, Me, "x")]), Me, null, null);
+        var kill = t.Events.Single(e => e.Type == MatchEventType.Kill);
+        Assert.Null(kill.KillerAgent);
+        Assert.Null(kill.VictimAgent);
+    }
+
+    [Fact]
+    public void AgentDisplayName()
+    {
+        Assert.Equal("ジェット", DisplayNames.Agent(Jett));
+        Assert.Equal("ジェット", DisplayNames.Agent(Jett.ToUpperInvariant()));
+        Assert.Null(DisplayNames.Agent("00000000-0000-0000-0000-000000000000"));
+        Assert.Null(DisplayNames.Agent(null));
+    }
+
+    [Fact]
+    public void LoadTimeline_RebuildsOldTimelineFromMatchDetails()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ValoCaptureTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var session = new MatchSession { Directory = dir, Puuid = Me, Status = SessionStatus.Ready };
+            session.Save();
+            session.SaveJson(MatchSession.MatchFile, Match(
+                topKills: [Kill(10_000, 9_000, Me, "x")],
+                players: [new { subject = Me, characterId = Jett }, new { subject = "x", characterId = Sage }]));
+            // エージェント ID を持たない古い形式（Version なし）の timeline.json
+            File.WriteAllText(Path.Combine(dir, MatchSession.TimelineFile), JsonSerializer.Serialize(new MatchTimeline(
+                "m1", "deathmatch", "", GameStart, 300_000, 1, 0, 0,
+                [new MatchEvent(MatchEventType.Kill, 0, 10_000, null, Me, "x")])).Replace(",\"Version\":0", ""));
+
+            var t = MatchSession.Load(dir).LoadTimeline()!;
+
+            Assert.Equal(MatchTimeline.CurrentVersion, t.Version);
+            Assert.Equal(Sage, t.Events.Single(e => e.Type == MatchEventType.Kill).VictimAgent);
+            // 作り直したものが保存されている
+            Assert.Equal(MatchTimeline.CurrentVersion, MatchSession.Load(dir).LoadTimeline()!.Version);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
     }
 }

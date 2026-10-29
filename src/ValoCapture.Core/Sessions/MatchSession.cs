@@ -72,11 +72,21 @@ public sealed class MatchSession
         return sessions.OrderByDescending(s => s.DetectedAt).ToList();
     }
 
-    /// <summary>timeline.json。まだ作られていなければ null。</summary>
+    /// <summary>timeline.json。まだ作られていなければ null。古い形式なら match.json から作り直す。</summary>
     public MatchTimeline? LoadTimeline()
     {
         var path = Path.Combine(Directory, TimelineFile);
-        return File.Exists(path) ? JsonSerializer.Deserialize<MatchTimeline>(File.ReadAllText(path)) : null;
+        if (!File.Exists(path)) return null;
+
+        var timeline = JsonSerializer.Deserialize<MatchTimeline>(File.ReadAllText(path));
+        if (timeline is null || timeline.Version >= MatchTimeline.CurrentVersion || !HasMatchDetails || Puuid is null)
+            return timeline;
+
+        try { return RebuildTimeline(OffsetMs); }
+        catch (Exception ex) when (ex is JsonException or IOException or KeyNotFoundException or InvalidOperationException)
+        {
+            return timeline;
+        }
     }
 
     /// <summary>補正値を変えて match.json からタイムラインを作り直し、保存する。</summary>

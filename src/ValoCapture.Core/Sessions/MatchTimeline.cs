@@ -8,6 +8,8 @@ public enum MatchEventType { RoundStart, Kill, Death, Assist }
 
 /// <param name="GameTimeMs">試合開始（gameStartMillis）からの経過時間。</param>
 /// <param name="VideoTimeMs">動画の先頭からの位置。録画範囲外なら null。</param>
+/// <param name="KillerAgent">キルしたプレイヤーのエージェント ID（characterId）。</param>
+/// <param name="VictimAgent">キルされたプレイヤーのエージェント ID（characterId）。</param>
 public sealed record MatchEvent(
     MatchEventType Type,
     int Round,
@@ -15,7 +17,9 @@ public sealed record MatchEvent(
     long? VideoTimeMs,
     string? Killer = null,
     string? Victim = null,
-    string? DamageItem = null);
+    string? DamageItem = null,
+    string? KillerAgent = null,
+    string? VictimAgent = null);
 
 public sealed record MatchTimeline(
     string MatchId,
@@ -26,7 +30,13 @@ public sealed record MatchTimeline(
     int MyKills,
     int MyDeaths,
     int MyAssists,
-    IReadOnlyList<MatchEvent> Events);
+    IReadOnlyList<MatchEvent> Events,
+    int Version = 0)
+{
+    /// <summary>timeline.json の形式。上げると、古い timeline.json は読み込み時に match.json から作り直される。</summary>
+    /// <remarks>2: エージェント ID を追加</remarks>
+    public const int CurrentVersion = 2;
+}
 
 /// <summary>
 /// 試合詳細（pd match-details）の JSON から、自分に関係するイベントを動画上の時刻付きで取り出す。
@@ -57,6 +67,9 @@ public static class MatchTimelineBuilder
             return t;
         }
 
+        var agents = ReadAgents(root);
+        string? AgentOf(string puuid) => agents.GetValueOrDefault(puuid);
+
         var kills = EnumerateKills(root).ToList();
         var events = new List<MatchEvent>();
 
@@ -84,7 +97,8 @@ public static class MatchTimelineBuilder
                 case MatchEventType.Death: myDeaths++; break;
                 case MatchEventType.Assist: myAssists++; break;
             }
-            events.Add(new MatchEvent(type.Value, k.Round, k.GameTime, ToVideoTime(k.GameTime), k.Killer, k.Victim, k.DamageItem));
+            events.Add(new MatchEvent(type.Value, k.Round, k.GameTime, ToVideoTime(k.GameTime), k.Killer, k.Victim, k.DamageItem,
+                AgentOf(k.Killer), AgentOf(k.Victim)));
         }
 
         return new MatchTimeline(
@@ -96,7 +110,22 @@ public static class MatchTimelineBuilder
             myKills,
             myDeaths,
             myAssists,
-            events.OrderBy(e => e.GameTimeMs).ThenBy(e => e.Type).ToList());
+            events.OrderBy(e => e.GameTimeMs).ThenBy(e => e.Type).ToList(),
+            MatchTimeline.CurrentVersion);
+    }
+
+    /// <summary>players[] の puuid（subject）→ エージェント ID（characterId）。</summary>
+    private static Dictionary<string, string> ReadAgents(JsonElement root)
+    {
+        var result = new Dictionary<string, string>();
+        if (!root.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return result;
+        foreach (var p in players.EnumerateArray())
+        {
+            if (p.TryGetProperty("subject", out var s) && s.GetString() is { } subject
+                && p.TryGetProperty("characterId", out var c) && c.GetString() is { Length: > 0 } characterId)
+                result[subject] = characterId;
+        }
+        return result;
     }
 
     private sealed record Kill(int Round, long GameTime, long RoundTime, string Killer, string Victim, string[] Assistants, string? DamageItem);
