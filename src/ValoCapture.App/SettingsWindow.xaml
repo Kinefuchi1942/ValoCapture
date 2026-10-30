@@ -7,6 +7,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:SettingsViewModel}"
         Title="設定 - ValoCapture" Width="600" SizeToContent="Height" ResizeMode="NoResize"
+        MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app.ico"
         Background="{StaticResource Ground}" Foreground="{StaticResource Text}"
         FontFamily="{StaticResource UiFont}" FontSize="14"
@@ -26,120 +27,130 @@
         </Style>
     </Window.Resources>
 
-    <StackPanel Margin="20">
-        <!-- 起動 -->
-        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
-            <StackPanel>
-                <TextBlock Text="起動" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
-                <CheckBox Content="Windows の起動時に自動で起動する" IsChecked="{Binding LaunchAtStartup}" />
-                <TextBlock Style="{StaticResource Hint}" Text="サインインするとウィンドウを開かずにタスクトレイで待機し、試合を自動で録画します。" />
-            </StackPanel>
-        </Border>
-
-        <!-- 録画対象 -->
-        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
-            <StackPanel>
-                <TextBlock Text="録画対象" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
-                <TextBlock Text="録画するモード" Style="{StaticResource Label}" />
-                <ItemsControl ItemsSource="{Binding Queues}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="4" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="0,0,0,8" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,18"
-                           Text="チェックしたモードの試合に入ると自動で録画します。タスクトレイのメニューからも変更できます。" />
-
-                <TextBlock Text="録画する画面" Style="{StaticResource Label}" />
-                <ComboBox ItemsSource="{Binding CaptureTargets}" SelectedItem="{Binding SelectedCaptureTarget}" DisplayMemberPath="Name" />
-                <TextBlock Style="{StaticResource Hint}"
-                           Text="「VALORANT のゲーム画面」はウィンドウモードでもゲーム部分だけを録画します（ゲームが見つからないときはモニター全体）。モニター全体を選ぶと、そのモニターに映っているものをすべて録画します。次の試合から反映されます。" />
-            </StackPanel>
-        </Border>
-
-        <!-- 画質 -->
-        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
-            <StackPanel>
-                <TextBlock Text="画質" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="解像度" Style="{StaticResource Label}" />
-                        <ComboBox ItemsSource="{Binding Resolutions}" SelectedItem="{Binding SelectedResolution}" DisplayMemberPath="Name" />
+    <!-- 画面の高さに収まらないときは項目をスクロールし、保存・キャンセルは常に下に表示する -->
+    <Grid Margin="0,0,0,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      PreviewMouseWheel="OnScrollerMouseWheel">
+            <StackPanel Margin="20,20,20,0">
+                <!-- 起動 -->
+                <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="起動" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                        <CheckBox Content="Windows の起動時に自動で起動する" IsChecked="{Binding LaunchAtStartup}" />
+                        <TextBlock Style="{StaticResource Hint}" Text="サインインするとウィンドウを開かずにタスクトレイで待機し、試合を自動で録画します。" />
                     </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="フレームレート" Style="{StaticResource Label}" />
-                        <ComboBox ItemsSource="{Binding Framerates}" SelectedItem="{Binding SelectedFramerate}" DisplayMemberPath="Name" />
+                </Border>
+
+                <!-- 録画対象 -->
+                <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="録画対象" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                        <TextBlock Text="録画するモード" Style="{StaticResource Label}" />
+                        <ItemsControl ItemsSource="{Binding Queues}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="0,0,0,8" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,18"
+                                   Text="チェックしたモードの試合に入ると自動で録画します。タスクトレイのメニューからも変更できます。" />
+
+                        <TextBlock Text="録画する画面" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding CaptureTargets}" SelectedItem="{Binding SelectedCaptureTarget}" DisplayMemberPath="Name" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="「VALORANT のゲーム画面」はウィンドウモードでもゲーム部分だけを録画します（ゲームが見つからないときはモニター全体）。モニター全体を選ぶと、そのモニターに映っているものをすべて録画します。次の試合から反映されます。" />
                     </StackPanel>
-                    <StackPanel Grid.Column="4">
-                        <TextBlock Text="ビットレート" Style="{StaticResource Label}" />
-                        <ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding SelectedBitrate}" DisplayMemberPath="Name" />
+                </Border>
+
+                <!-- 画質 -->
+                <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Text="画質" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="解像度" Style="{StaticResource Label}" />
+                                <ComboBox ItemsSource="{Binding Resolutions}" SelectedItem="{Binding SelectedResolution}" DisplayMemberPath="Name" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="フレームレート" Style="{StaticResource Label}" />
+                                <ComboBox ItemsSource="{Binding Framerates}" SelectedItem="{Binding SelectedFramerate}" DisplayMemberPath="Name" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="ビットレート" Style="{StaticResource Label}" />
+                                <ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding SelectedBitrate}" DisplayMemberPath="Name" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Text="{Binding SizeEstimateText}" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="ビットレートを上げると動きの激しい場面もきれいに残りますが、容量が増えます。解像度やフレームレートを上げるときは、ビットレートも上げるのがおすすめです。次の試合から反映されます。" />
                     </StackPanel>
-                </Grid>
-                <TextBlock Style="{StaticResource Hint}" Text="{Binding SizeEstimateText}" />
-                <TextBlock Style="{StaticResource Hint}"
-                           Text="ビットレートを上げると動きの激しい場面もきれいに残りますが、容量が増えます。解像度やフレームレートを上げるときは、ビットレートも上げるのがおすすめです。次の試合から反映されます。" />
+                </Border>
+
+                <!-- 録画の音声 -->
+                <Border Style="{StaticResource PanelBorder}" Padding="18,16">
+                    <StackPanel>
+                        <TextBlock Text="録画の音声" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+
+                        <TextBlock Text="ゲーム音を録音する出力デバイス" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutput}" DisplayMemberPath="Name" />
+                        <TextBlock Style="{StaticResource Hint}" Text="このデバイスから流れている音（ゲーム音・ボイスチャットなど）を録画に入れます。" />
+
+                        <CheckBox Content="マイクの音を録画に含める" IsChecked="{Binding CaptureMicrophone}" Margin="0,18,0,10" />
+                        <TextBlock Text="マイク（入力デバイス）" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding SelectedInput}" DisplayMemberPath="Name"
+                                  IsEnabled="{Binding CaptureMicrophone}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 保存先と容量 -->
+                <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,14,0,0">
+                    <StackPanel>
+                        <TextBlock Text="保存" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+
+                        <TextBlock Text="動画の保存先" Style="{StaticResource Label}" />
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="参照…" Margin="8,0,0,0" Click="OnBrowseFolder" />
+                            <TextBox Text="{Binding RecordingsRoot}" IsReadOnly="True" ToolTip="{Binding RecordingsRoot}" />
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="変更すると次の試合から新しい保存先に録画します。既存の録画は移動しません。" />
+
+                        <CheckBox Content="動画の容量を制限する" IsChecked="{Binding LimitStorage}" Margin="0,18,0,10" />
+                        <StackPanel Orientation="Horizontal" IsEnabled="{Binding LimitStorage}">
+                            <TextBlock Text="上限" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBox Text="{Binding StorageLimitGbText, UpdateSourceTrigger=PropertyChanged}" Width="90" TextAlignment="Right"
+                                     FontFamily="{StaticResource NumFont}" InputScope="Number" />
+                            <TextBlock Text="GB" Foreground="{StaticResource Soft}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="合計が上限を超えると、古い試合から自動的に削除します。ブックマーク（☆）した試合は削除しません。" />
+                        <TextBlock Style="{StaticResource Hint}" Text="{Binding UsageText}" FontFamily="{StaticResource UiFont}" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </Border>
+        </ScrollViewer>
 
-        <!-- 録画の音声 -->
-        <Border Style="{StaticResource PanelBorder}" Padding="18,16">
-            <StackPanel>
-                <TextBlock Text="録画の音声" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
-
-                <TextBlock Text="ゲーム音を録音する出力デバイス" Style="{StaticResource Label}" />
-                <ComboBox ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutput}" DisplayMemberPath="Name" />
-                <TextBlock Style="{StaticResource Hint}" Text="このデバイスから流れている音（ゲーム音・ボイスチャットなど）を録画に入れます。" />
-
-                <CheckBox Content="マイクの音を録画に含める" IsChecked="{Binding CaptureMicrophone}" Margin="0,18,0,10" />
-                <TextBlock Text="マイク（入力デバイス）" Style="{StaticResource Label}" />
-                <ComboBox ItemsSource="{Binding InputDevices}" SelectedItem="{Binding SelectedInput}" DisplayMemberPath="Name"
-                          IsEnabled="{Binding CaptureMicrophone}" />
-            </StackPanel>
-        </Border>
-
-        <!-- 保存先と容量 -->
-        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,14,0,0">
-            <StackPanel>
-                <TextBlock Text="保存" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
-
-                <TextBlock Text="動画の保存先" Style="{StaticResource Label}" />
-                <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="参照…" Margin="8,0,0,0" Click="OnBrowseFolder" />
-                    <TextBox Text="{Binding RecordingsRoot}" IsReadOnly="True" ToolTip="{Binding RecordingsRoot}" />
-                </DockPanel>
-                <TextBlock Style="{StaticResource Hint}" Text="変更すると次の試合から新しい保存先に録画します。既存の録画は移動しません。" />
-
-                <CheckBox Content="動画の容量を制限する" IsChecked="{Binding LimitStorage}" Margin="0,18,0,10" />
-                <StackPanel Orientation="Horizontal" IsEnabled="{Binding LimitStorage}">
-                    <TextBlock Text="上限" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBox Text="{Binding StorageLimitGbText, UpdateSourceTrigger=PropertyChanged}" Width="90" TextAlignment="Right"
-                             FontFamily="{StaticResource NumFont}" InputScope="Number" />
-                    <TextBlock Text="GB" Foreground="{StaticResource Soft}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                </StackPanel>
-                <TextBlock Style="{StaticResource Hint}"
-                           Text="合計が上限を超えると、古い試合から自動的に削除します。ブックマーク（☆）した試合は削除しません。" />
-                <TextBlock Style="{StaticResource Hint}" Text="{Binding UsageText}" FontFamily="{StaticResource UiFont}" />
-            </StackPanel>
-        </Border>
-
-        <DockPanel Margin="0,16,0,0" LastChildFill="False">
+        <DockPanel Grid.Row="1" Margin="20,16,20,0" LastChildFill="False">
             <Button DockPanel.Dock="Right" Content="キャンセル" IsCancel="True" Width="100" Margin="8,0,0,0" />
             <Button DockPanel.Dock="Right" Content="保存" Style="{StaticResource PrimaryButton}" IsDefault="True" Width="100" Click="OnSave" />
             <TextBlock Text="{Binding Error}" Foreground="{StaticResource Death}" FontSize="12" VerticalAlignment="Center"
                        TextWrapping="Wrap" MaxWidth="320" />
         </DockPanel>
-    </StackPanel>
+    </Grid>
 </Window>

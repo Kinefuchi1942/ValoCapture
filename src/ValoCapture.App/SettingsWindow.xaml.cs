@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Win32;
 using ValoCapture.App.Services;
 using ValoCapture.App.ViewModels;
@@ -23,6 +24,18 @@ public partial class SettingsWindow : Window
     {
         var dialog = new OpenFolderDialog { Title = "動画の保存先を選択", InitialDirectory = _vm.RecordingsRoot };
         if (dialog.ShowDialog(this) == true) _vm.RecordingsRoot = dialog.FolderName;
+    }
+
+    /// <summary>
+    /// 入力欄やコンボボックスの上でもホイールで設定画面をスクロールする（WPF の TextBox はホイールを握りつぶすため）。
+    /// 開いたドロップダウンの中は別ウィンドウなので、そちらのスクロールに任せる。
+    /// </summary>
+    private void OnScrollerMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && PresentationSource.FromDependencyObject(source)?.RootVisual != this) return;
+        if (Scroller.ScrollableHeight <= 0) return;
+        Scroller.ScrollToVerticalOffset(Scroller.VerticalOffset - e.Delta * 0.4);
+        e.Handled = true;
     }
 
     private void OnSave(object sender, RoutedEventArgs e)

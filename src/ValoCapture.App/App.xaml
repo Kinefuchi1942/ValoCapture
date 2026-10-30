@@ -289,6 +289,9 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="ItemContainerStyle" Value="{StaticResource ItemStyle}" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <!-- 試合の一覧は 1 件が大きいので、項目単位ではなくピクセル単位でなめらかにスクロールする -->
+            <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
         </Style>
 
         <!-- 細いスクロールバー -->
