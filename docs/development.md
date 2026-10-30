@@ -26,13 +26,28 @@
 | exe と配布用 zip を作る | `BuildExe.bat` をダブルクリック → `dist/ValoCapture.exe` と `dist/ValoCapture-<バージョン>.zip` |
 | デスクトップにショートカットを作る | `powershell -ExecutionPolicy Bypass -File tools\create_shortcut.ps1`（先に exe を作っておく） |
 
-配布し直すときは `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げる。
+## リリース
+
+GitHub Releases への公開は GitHub Actions（`.github/workflows/release.yml`）が行う。`v` で始まるタグをプッシュすると、Windows のランナーでテストと `tools/publish.ps1` を実行し、`ValoCapture.exe` と `ValoCapture-<バージョン>.zip` を添付したリリースを作る。
+
+1. `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げてコミットし、`main` にプッシュする
+2. 同じバージョンのタグを付けてプッシュする（`<Version>` が `1.0.1` ならタグは `v1.0.1`。一致しないとワークフローが失敗する）
+
+```bash
+git tag v1.0.1
+```
+
+```bash
+git push origin v1.0.1
+```
+
+exe は毎回同じ名前で添付するので、README の `releases/latest/download/ValoCapture.exe` は常に最新版を指す。進み具合は GitHub の「Actions」タブで確認できる。
 
 ## ツール
 
 | ファイル | 内容 |
 | --- | --- |
-| `tools/publish.ps1` | 単体 exe と配布用 zip の作成（`BuildExe.bat` から呼ばれる） |
+| `tools/publish.ps1` | 単体 exe と配布用 zip の作成（`BuildExe.bat` とリリースのワークフローから呼ばれる） |
 | `tools/dist-readme.txt` | zip に同梱する説明書のひな形 |
 | `tools/make_icon.py` | アプリアイコン（`Assets/app.ico`）の生成 |
 | `tools/calibrate_offset.py` | 録画のキルフィードから時刻補正の値を測る |
