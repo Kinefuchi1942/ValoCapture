@@ -87,6 +87,57 @@ public class MatchTimelineTests
     }
 
     [Fact]
+    public void ParticipationPeriods_UseFirstJoinAsGameTimeOrigin()
+    {
+        // コンペティティブ: gameStartMillis はエージェント選択の開始で、参加はその約 105 秒後
+        static object P(string subject, long joinAfterStartMs) => new
+        {
+            subject,
+            teamId = "Blue",
+            participationPeriods = new[]
+            {
+                new { sessionStartTime = DateTimeOffset.FromUnixTimeMilliseconds(GameStart + joinAfterStartMs).ToString("yyyy-MM-ddTHH:mm:ss.fffZ") },
+            },
+        };
+        var json = Match(topKills: [Kill(60_000, 20_000, Me, "x")], players: [P(Me, 105_500), P("x", 105_000)]);
+        var origin = GameStart + 105_000 - MatchTimelineBuilder.JoinLeadMs;
+        var recordStart = DateTimeOffset.FromUnixTimeMilliseconds(origin + 2_000);
+
+        var t = MatchTimelineBuilder.Build(json, Me, recordStart, TimeSpan.FromMinutes(5), offsetMs: 500);
+
+        Assert.Equal(origin, t.GameTimeOrigin);
+        Assert.Equal(58_500, t.Events.Single(e => e.Type == MatchEventType.Kill).VideoTimeMs);
+    }
+
+    [Fact]
+    public void LoadTimeline_RebuildsOutdatedVersion()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "valocapture-test-" + Guid.NewGuid());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var session = new MatchSession
+            {
+                Directory = dir,
+                Puuid = Me,
+                RecordStartedAt = DateTimeOffset.FromUnixTimeMilliseconds(GameStart),
+                OffsetMs = 1_000,
+            };
+            session.SaveJson(MatchSession.MatchFile, Match(topKills: [Kill(10_000, 9_000, Me, "x")]));
+            session.SaveTimeline(new MatchTimeline("m1", "deathmatch", "", GameStart, 0, 0, 0, 0, []));
+
+            var t = session.LoadTimeline();
+
+            Assert.Equal(MatchTimelineBuilder.CurrentVersion, t?.Version);
+            Assert.Equal(11_000, t?.Events.Single(e => e.Type == MatchEventType.Kill).VideoTimeMs);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void NoRecordStart_LeavesVideoTimeNull()
     {
         var json = Match(topKills: [Kill(10_000, 9_000, Me, "x")]);

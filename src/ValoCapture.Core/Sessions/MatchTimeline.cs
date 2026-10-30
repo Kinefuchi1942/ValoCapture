@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -25,6 +26,8 @@ public enum MatchOutcome { Win, Loss, Draw }
 public sealed record MatchResult(MatchOutcome Outcome, int MyScore, int OpponentScore);
 
 /// <param name="Result">勝敗。この項目を追加する前に作った timeline.json や、判定できない試合では null。</param>
+/// <param name="GameTimeOrigin">gameTime の 0 とみなした時刻（Unix ms）。</param>
+/// <param name="Version">作成したときの <see cref="MatchTimelineBuilder.CurrentVersion"/>。古ければ作り直す。</param>
 public sealed record MatchTimeline(
     string MatchId,
     string QueueId,
@@ -35,13 +38,28 @@ public sealed record MatchTimeline(
     int MyDeaths,
     int MyAssists,
     IReadOnlyList<MatchEvent> Events,
-    MatchResult? Result = null);
+    MatchResult? Result = null,
+    long GameTimeOrigin = 0,
+    int Version = 0);
 
 /// <summary>
 /// 試合詳細（pd match-details）の JSON から、自分に関係するイベントを動画上の時刻付きで取り出す。
 /// </summary>
 public static class MatchTimelineBuilder
 {
+    /// <summary>
+    /// 動画上の時刻の計算方法の版。1: gameTime の基準を gameStartMillis から参加開始時刻に変更。
+    /// これより古い timeline.json は <see cref="MatchSession.LoadTimeline"/> で作り直す。
+    /// </summary>
+    public const int CurrentVersion = 1;
+
+    /// <summary>
+    /// gameTime の 0 は、最初のプレイヤーがゲームサーバーに参加した時刻（participationPeriods の sessionStartTime）の約 4.7 秒前。
+    /// デスマッチでは gameStartMillis とほぼ同じ（2026-10-28 の 3 試合で 4.4〜4.9 秒差）だが、
+    /// コンペティティブの gameStartMillis はエージェント選択の開始時刻で、gameTime の 0 より約 105 秒早い。
+    /// </summary>
+    public const long JoinLeadMs = 4_700;
+
     /// <param name="recordStartedAt">録画が始まった時刻。null なら VideoTimeMs はすべて null。</param>
     /// <param name="recordLength">録画の長さ。これを超えるイベントは録画範囲外とする。</param>
     /// <param name="offsetMs">手動補正値（動画上の位置にそのまま足す）。</param>
@@ -56,11 +74,12 @@ public static class MatchTimelineBuilder
         var root = doc.RootElement;
         var info = root.GetProperty("matchInfo");
         var gameStart = info.GetProperty("gameStartMillis").GetInt64();
+        var origin = FirstJoinMillis(root) is { } join ? join - JoinLeadMs : gameStart;
 
         long? ToVideoTime(long gameTime)
         {
             if (recordStartedAt is null) return null;
-            var t = gameStart + gameTime - recordStartedAt.Value.ToUnixTimeMilliseconds() + offsetMs;
+            var t = origin + gameTime - recordStartedAt.Value.ToUnixTimeMilliseconds() + offsetMs;
             if (t < 0) return null;
             if (recordLength is { } len && t > (long)len.TotalMilliseconds) return null;
             return t;
@@ -106,7 +125,30 @@ public static class MatchTimelineBuilder
             myDeaths,
             myAssists,
             events.OrderBy(e => e.GameTimeMs).ThenBy(e => e.Type).ToList(),
-            ReadResult(root, myPuuid));
+            ReadResult(root, myPuuid),
+            origin,
+            CurrentVersion);
+    }
+
+    // 全プレイヤーの participationPeriods[].sessionStartTime の最小値（自分の参加が遅れたり再接続したりしても影響しない）
+    private static long? FirstJoinMillis(JsonElement root)
+    {
+        if (!root.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return null;
+        long? first = null;
+        foreach (var p in players.EnumerateArray())
+        {
+            if (!p.TryGetProperty("participationPeriods", out var periods) || periods.ValueKind != JsonValueKind.Array) continue;
+            foreach (var period in periods.EnumerateArray())
+            {
+                if (period.TryGetProperty("sessionStartTime", out var st) && st.ValueKind == JsonValueKind.String
+                    && DateTimeOffset.TryParse(st.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at))
+                {
+                    var ms = at.ToUnixTimeMilliseconds();
+                    if (first is null || ms < first) first = ms;
+                }
+            }
+        }
+        return first;
     }
 
     /// <summary>試合詳細の JSON から自分のチームの勝敗を読む。判定できなければ null。</summary>

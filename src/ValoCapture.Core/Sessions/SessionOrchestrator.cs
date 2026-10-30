@@ -44,10 +44,11 @@ public sealed class SessionOrchestrator
     public int DetailsRetryCount { get; init; } = 20;
 
     /// <summary>
-    /// 新しいセッションの時刻補正の初期値。gameStartMillis + gameTime はキルフィード表示より 6〜7.5 秒早い。
-    /// 試合内のずれは一定（キルは ±0.05 秒）だが、試合ごとに基準が約 1 秒ばらつく
-    /// （2026-10-28 のデスマッチ 2 試合で 6.33 秒 / 7.38 秒。gameTime の 0 はクライアントの接続前のサーバー時刻で、
-    /// ローカルのログ時刻とも一定の関係にない）。中間値を使い、±0.5 秒程度の誤差は許容する。
+    /// 新しいセッションの時刻補正の初期値。gameTime の基準（<see cref="MatchTimelineBuilder.JoinLeadMs"/>）+ gameTime は
+    /// キルフィード表示より 6〜7.5 秒早い。試合内のずれは一定（キルは ±0.05 秒）だが、試合ごとに基準が約 1 秒ばらつく
+    /// （2026-10-28 のデスマッチ 2 試合で 6.33 秒 / 7.38 秒、2026-10-30 のコンペティティブで 6.34 秒。
+    /// gameTime の 0 はクライアントの接続前のサーバー時刻で、ローカルのログ時刻とも一定の関係にない）。
+    /// 中間値を使い、±0.5 秒程度の誤差は許容する。
     /// 試合ごとの正確な値は tools/calibrate_offset.py で測れる。
     /// </summary>
     public long DefaultOffsetMs { get; init; } = CalibratedOffsetMs;
