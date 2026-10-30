@@ -11,6 +11,13 @@ public static class QueueIds
     public const string TeamDeathmatch = "hurm";
     public const string Premier = "premier";
 
+    /// <summary>設定画面・トレイメニューで選べる録画対象の候補（表示順）。</summary>
+    public static IReadOnlyList<string> Selectable { get; } =
+    [
+        Competitive, Unrated, Swiftplay, SpikeRush,
+        Deathmatch, TeamDeathmatch, Premier,
+    ];
+
     /// <summary>"competitive,deathmatch" のようなカンマ区切りを集合にする。別名（ranked / dm / tdm）も受け付ける。</summary>
     public static IReadOnlySet<string> Parse(string csv) =>
         csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

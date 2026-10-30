@@ -55,10 +55,11 @@ public sealed class RecorderHost : IAsyncDisposable
         set => _orchestrator.OutputRoot = value;
     }
 
-    /// <summary>録画の設定（音声デバイスなど）と保存先を変える。録画中なら次の試合から反映される。</summary>
+    /// <summary>録画の設定（音声デバイスなど）・録画するモード・保存先を変える。録画中なら次の試合から反映される。</summary>
     public void ApplySettings(AppSettings settings)
     {
         _recorder.Settings = settings.ToRecorderSettings();
+        Target = new MatchTarget(settings.TargetQueues);
         OutputRoot = settings.RecordingsRoot;
     }
 

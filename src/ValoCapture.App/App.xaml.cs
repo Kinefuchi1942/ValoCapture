@@ -186,7 +186,8 @@ public partial class App : Application
         _host!.ApplySettings(_settings);
         // 一覧の読み直しと保存先の反映（OnViewModelPropertyChanged）
         _vm!.RecordingsRoot = _settings.RecordingsRoot;
-        WriteLog($"設定を変更: 録画先={_settings.RecordingsRoot} 出力={_settings.OutputDeviceId ?? "既定"} " +
+        UpdateStatus();
+        WriteLog($"設定を変更: 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)} 出力={_settings.OutputDeviceId ?? "既定"} " +
                  $"マイク={(_settings.CaptureMicrophone ? _settings.InputDeviceId ?? "既定" : "なし")} 上限={_settings.StorageLimitGb}GB");
         EnforceStorageLimit();
     }

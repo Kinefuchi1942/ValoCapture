@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using ValoCapture.App.Services;
+using ValoCapture.Core.Game;
 using ValoCapture.Core.Sessions;
 using ValoCapture.Core.Settings;
 using ValoCapture.Recording;
@@ -19,6 +20,14 @@ public sealed record CaptureOption(bool CaptureGameWindow, string? MonitorDevice
     public override string ToString() => Name;
 }
 
+/// <summary>録画するモードの選択肢。</summary>
+public sealed partial class QueueOption(string id, bool isSelected) : ObservableObject
+{
+    public string Id { get; } = id;
+    public string Name { get; } = DisplayNames.Queue(id);
+    [ObservableProperty] private bool _isSelected = isSelected;
+}
+
 /// <summary>設定画面。「保存」を押すまで <see cref="AppSettings"/> は変えない。</summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
@@ -28,6 +37,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         InputDevices = BuildOptions(AudioDevices.GetInputDevices(), settings.InputDeviceId);
         _selectedOutput = OutputDevices.First(o => o.Id == settings.OutputDeviceId);
         _selectedInput = InputDevices.First(o => o.Id == settings.InputDeviceId);
+        Queues = QueueIds.Selectable
+            .Select(q => new QueueOption(q, settings.TargetQueues.Contains(q, StringComparer.OrdinalIgnoreCase)))
+            .ToList();
         CaptureTargets = BuildCaptureTargets(Displays.GetDisplays(), settings.MonitorDeviceName);
         _selectedCaptureTarget = CaptureTargets.First(o => o.CaptureGameWindow == settings.CaptureGameWindow
             && (o.CaptureGameWindow || o.MonitorDeviceName == settings.MonitorDeviceName));
@@ -45,6 +57,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<DeviceOption> OutputDevices { get; }
     public IReadOnlyList<DeviceOption> InputDevices { get; }
     public IReadOnlyList<CaptureOption> CaptureTargets { get; }
+    public IReadOnlyList<QueueOption> Queues { get; }
 
     /// <summary>Windows へのサインイン時に自動起動するか（設定ファイルではなくレジストリに保存する）。</summary>
     [ObservableProperty] private bool _launchAtStartup;
@@ -78,6 +91,18 @@ public sealed partial class SettingsViewModel : ObservableObject
             return false;
         }
 
+        if (!Queues.Any(q => q.IsSelected))
+        {
+            Error = "録画するモードを 1 つ以上選んでください";
+            return false;
+        }
+
+        // 候補にないキュー（settings.json に手で書いたものなど）は残す
+        settings.TargetQueues =
+        [
+            .. settings.TargetQueues.Where(q => !QueueIds.Selectable.Contains(q, StringComparer.OrdinalIgnoreCase)),
+            .. Queues.Where(q => q.IsSelected).Select(q => q.Id),
+        ];
         settings.CaptureGameWindow = SelectedCaptureTarget.CaptureGameWindow;
         // ゲーム画面を選んだときは、見つからないときに撮るモニターとして前の選択を残す
         if (!SelectedCaptureTarget.CaptureGameWindow) settings.MonitorDeviceName = SelectedCaptureTarget.MonitorDeviceName;

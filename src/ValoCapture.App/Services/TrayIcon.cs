@@ -8,13 +8,6 @@ namespace ValoCapture.App.Services;
 /// <summary>タスクトレイのアイコンとメニュー。</summary>
 public sealed class TrayIcon : IDisposable
 {
-    // メニューに出す録画対象の候補
-    private static readonly string[] SelectableQueues =
-    [
-        QueueIds.Competitive, QueueIds.Unrated, QueueIds.Swiftplay, QueueIds.SpikeRush,
-        QueueIds.Deathmatch, QueueIds.TeamDeathmatch, QueueIds.Premier,
-    ];
-
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
     // 待機中はアプリアイコン、録画中は状態がひと目で分かる赤丸
@@ -29,7 +22,7 @@ public sealed class TrayIcon : IDisposable
         _statusItem = new ToolStripMenuItem("起動中…") { Enabled = false };
 
         var queues = new ToolStripMenuItem("録画するモード");
-        foreach (var q in SelectableQueues)
+        foreach (var q in QueueIds.Selectable)
         {
             var item = new ToolStripMenuItem(DisplayNames.Queue(q)) { CheckOnClick = true };
             item.Click += (_, _) => toggleQueue(q, item.Checked);
@@ -38,8 +31,8 @@ public sealed class TrayIcon : IDisposable
         // 開くたびに現在の設定を反映する
         queues.DropDownOpening += (_, _) =>
         {
-            for (var i = 0; i < SelectableQueues.Length; i++)
-                ((ToolStripMenuItem)queues.DropDownItems[i]).Checked = isQueueSelected(SelectableQueues[i]);
+            for (var i = 0; i < QueueIds.Selectable.Count; i++)
+                ((ToolStripMenuItem)queues.DropDownItems[i]).Checked = isQueueSelected(QueueIds.Selectable[i]);
         };
 
         var menu = new ContextMenuStrip();

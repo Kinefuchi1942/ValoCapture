@@ -40,6 +40,22 @@
         <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
             <StackPanel>
                 <TextBlock Text="録画対象" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                <TextBlock Text="録画するモード" Style="{StaticResource Label}" />
+                <ItemsControl ItemsSource="{Binding Queues}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="0,0,0,8" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,18"
+                           Text="チェックしたモードの試合に入ると自動で録画します。タスクトレイのメニューからも変更できます。" />
+
                 <TextBlock Text="録画する画面" Style="{StaticResource Label}" />
                 <ComboBox ItemsSource="{Binding CaptureTargets}" SelectedItem="{Binding SelectedCaptureTarget}" DisplayMemberPath="Name" />
                 <TextBlock Style="{StaticResource Hint}"
