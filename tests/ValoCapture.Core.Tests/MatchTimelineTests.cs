@@ -19,12 +19,18 @@ public class MatchTimelineTests
         finishingDamage = new { damageType = "Weapon", damageItem = "VANDAL" },
     };
 
-    private static string Match(object[]? topKills = null, object[]? rounds = null) => JsonSerializer.Serialize(new
+    private static string Match(object[]? topKills = null, object[]? rounds = null, object[]? players = null, object[]? teams = null) => JsonSerializer.Serialize(new
     {
         matchInfo = new { matchId = "m1", queueID = "deathmatch", mapId = "/Game/Maps/Triad/Triad", gameStartMillis = GameStart, gameLengthMillis = 300_000 },
+        players,
+        teams,
         kills = topKills,
         roundResults = rounds ?? [],
     });
+
+    private static object Player(string subject, string teamId) => new { subject, teamId };
+
+    private static object Team(string teamId, bool won, int roundsWon, int numPoints = 0) => new { teamId, won, roundsWon, numPoints };
 
     [Fact]
     public void Deathmatch_TopLevelKills_ConvertsToVideoTime()
@@ -86,5 +92,44 @@ public class MatchTimelineTests
         var json = Match(topKills: [Kill(10_000, 9_000, Me, "x")]);
         var t = MatchTimelineBuilder.Build(json, Me, null, null);
         Assert.All(t.Events, e => Assert.Null(e.VideoTimeMs));
+    }
+
+    [Fact]
+    public void RoundBased_ReadsResultFromMyTeam()
+    {
+        var json = Match(
+            players: [Player(Me, "Blue"), Player("x", "Red")],
+            teams: [Team("Red", true, 13, 13), Team("Blue", false, 7, 7)]);
+
+        var t = MatchTimelineBuilder.Build(json, Me, null, null);
+
+        Assert.Equal(new MatchResult(MatchOutcome.Loss, 7, 13), t.Result);
+    }
+
+    [Fact]
+    public void Deathmatch_UsesPointsAndBestOpponent()
+    {
+        var json = Match(
+            players: [Player(Me, Me), Player("a", "a"), Player("b", "b")],
+            teams: [Team(Me, true, 1, 40), Team("a", false, 0, 31), Team("b", false, 0, 35)]);
+
+        Assert.Equal(new MatchResult(MatchOutcome.Win, 40, 35), MatchTimelineBuilder.ReadResult(json, Me));
+    }
+
+    [Fact]
+    public void NoWinner_IsDraw()
+    {
+        var json = Match(
+            players: [Player(Me, "Blue")],
+            teams: [Team("Red", false, 12, 12), Team("Blue", false, 12, 12)]);
+
+        Assert.Equal(MatchOutcome.Draw, MatchTimelineBuilder.ReadResult(json, Me)?.Outcome);
+    }
+
+    [Fact]
+    public void MissingTeams_ResultIsNull()
+    {
+        var json = Match(topKills: [Kill(10_000, 9_000, Me, "x")]);
+        Assert.Null(MatchTimelineBuilder.Build(json, Me, null, null).Result);
     }
 }

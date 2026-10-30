@@ -161,8 +161,24 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </Grid>
-                                <TextBlock Foreground="{StaticResource Dim}" FontSize="11" VerticalAlignment="Bottom">
-                                    <Run Text="{Binding QueueName, Mode=OneWay}" />
+                                <TextBlock Foreground="{StaticResource Dim}" FontSize="11" VerticalAlignment="Bottom" TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding ResultText, Mode=OneWay}" FontFamily="{StaticResource NumFont}" FontWeight="SemiBold">
+                                        <Run.Style>
+                                            <Style TargetType="Run">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Win">
+                                                        <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Loss">
+                                                        <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Draw">
+                                                        <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Run.Style>
+                                    </Run><Run Text="{Binding QueueName, Mode=OneWay}" />
                                     <Run Text="·" />
                                     <Run Text="{Binding DurationText, Mode=OneWay}" FontFamily="{StaticResource NumFont}" />
                                 </TextBlock>

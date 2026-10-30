@@ -28,8 +28,28 @@ public sealed partial class SessionItemViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasScore), nameof(StripEvents))]
+    [NotifyPropertyChangedFor(nameof(HasScore), nameof(StripEvents), nameof(Result), nameof(ResultText))]
     private MatchTimeline? _timeline;
+
+    partial void OnTimelineChanged(MatchTimeline? value) => _result = value?.Result ?? ReadResultFromMatchFile();
+
+    private MatchResult? _result;
+
+    /// <summary>勝敗。判定できなければ null。</summary>
+    public MatchResult? Result => _result;
+
+    /// <summary>一覧でモード名の前に付ける「勝利 13-7 」。後ろの空白はモード名との区切り。</summary>
+    public string ResultText => Result is { } r
+        ? $"{r.Outcome switch { MatchOutcome.Win => "勝利", MatchOutcome.Loss => "敗北", _ => "引分" }} {r.MyScore}-{r.OpponentScore} "
+        : "";
+
+    // 勝敗を記録する前に作った timeline.json には Result がないので match.json から読む
+    private MatchResult? ReadResultFromMatchFile()
+    {
+        if (Timeline is null || Session.Puuid is not { } puuid || !Session.HasMatchDetails) return null;
+        try { return MatchTimelineBuilder.ReadResult(File.ReadAllText(Path.Combine(Session.Directory, MatchSession.MatchFile)), puuid); }
+        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException) { return null; }
+    }
 
     public string MapName => DisplayNames.Map(Session.MapId);
     public string QueueName => DisplayNames.Queue(Session.QueueId);

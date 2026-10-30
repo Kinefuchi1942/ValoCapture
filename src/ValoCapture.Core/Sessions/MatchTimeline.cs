@@ -17,6 +17,14 @@ public sealed record MatchEvent(
     string? Victim = null,
     string? DamageItem = null);
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum MatchOutcome { Win, Loss, Draw }
+
+/// <param name="MyScore">自チームの取得ラウンド数（デスマッチ等はポイント）。</param>
+/// <param name="OpponentScore">相手チーム（複数なら最多）の取得ラウンド数・ポイント。</param>
+public sealed record MatchResult(MatchOutcome Outcome, int MyScore, int OpponentScore);
+
+/// <param name="Result">勝敗。この項目を追加する前に作った timeline.json や、判定できない試合では null。</param>
 public sealed record MatchTimeline(
     string MatchId,
     string QueueId,
@@ -26,7 +34,8 @@ public sealed record MatchTimeline(
     int MyKills,
     int MyDeaths,
     int MyAssists,
-    IReadOnlyList<MatchEvent> Events);
+    IReadOnlyList<MatchEvent> Events,
+    MatchResult? Result = null);
 
 /// <summary>
 /// 試合詳細（pd match-details）の JSON から、自分に関係するイベントを動画上の時刻付きで取り出す。
@@ -96,7 +105,48 @@ public static class MatchTimelineBuilder
             myKills,
             myDeaths,
             myAssists,
-            events.OrderBy(e => e.GameTimeMs).ThenBy(e => e.Type).ToList());
+            events.OrderBy(e => e.GameTimeMs).ThenBy(e => e.Type).ToList(),
+            ReadResult(root, myPuuid));
+    }
+
+    /// <summary>試合詳細の JSON から自分のチームの勝敗を読む。判定できなければ null。</summary>
+    public static MatchResult? ReadResult(string matchDetailsJson, string myPuuid)
+    {
+        using var doc = JsonDocument.Parse(matchDetailsJson);
+        return ReadResult(doc.RootElement, myPuuid);
+    }
+
+    // players[].teamId で自分のチームを特定し、teams[] の won とスコアを見る。
+    // ラウンド制は numPoints = roundsWon。デスマッチは teams がプレイヤーごと（teamId = puuid）で、
+    // numPoints がキル数、roundsWon は勝者だけ 1 なので numPoints を使う
+    private static MatchResult? ReadResult(JsonElement root, string myPuuid)
+    {
+        if (!root.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return null;
+        if (!root.TryGetProperty("teams", out var teams) || teams.ValueKind != JsonValueKind.Array) return null;
+
+        var myTeamId = players.EnumerateArray()
+            .Where(p => p.TryGetProperty("subject", out var s) && s.GetString() == myPuuid)
+            .Select(p => p.TryGetProperty("teamId", out var t) ? t.GetString() : null)
+            .FirstOrDefault();
+        if (myTeamId is null) return null;
+
+        var list = teams.EnumerateArray().Select(t => (
+            Id: t.TryGetProperty("teamId", out var id) ? id.GetString() : null,
+            Won: t.TryGetProperty("won", out var w) && w.ValueKind == JsonValueKind.True,
+            Rounds: t.TryGetProperty("roundsWon", out var r) && r.ValueKind == JsonValueKind.Number ? r.GetInt32() : 0,
+            Points: t.TryGetProperty("numPoints", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetInt32() : 0)).ToList();
+
+        var mine = list.FirstOrDefault(t => t.Id == myTeamId);
+        if (mine.Id is null) return null;
+        var others = list.Where(t => t.Id != myTeamId).ToList();
+
+        var usePoints = list.Any(t => t.Points > 0);
+        int Score((string? Id, bool Won, int Rounds, int Points) t) => usePoints ? t.Points : t.Rounds;
+
+        var outcome = mine.Won ? MatchOutcome.Win
+            : others.Any(t => t.Won) ? MatchOutcome.Loss
+            : MatchOutcome.Draw;
+        return new MatchResult(outcome, Score(mine), others.Count > 0 ? others.Max(Score) : 0);
     }
 
     private sealed record Kill(int Round, long GameTime, long RoundTime, string Killer, string Victim, string[] Assistants, string? DamageItem);
