@@ -1,0 +1,5 @@
+# GitHub の zip ダウンロードや autocrlf=false の clone でも cmd.exe / PowerShell が正しく読めるように、
+# Windows で直接実行するスクリプトは常に CRLF で取り出す
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
