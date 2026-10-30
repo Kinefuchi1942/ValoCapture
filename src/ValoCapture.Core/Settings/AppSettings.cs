@@ -21,6 +21,12 @@ public sealed class AppSettings
     public int OutputHeight { get; set; } = 1080;
     public bool CaptureMicrophone { get; set; }
 
+    /// <summary>true なら VALORANT のゲーム画面だけを録画する。false ならモニター全体。</summary>
+    public bool CaptureGameWindow { get; set; } = true;
+
+    /// <summary>モニター全体を録画するときのモニター（\\.\DISPLAY1 など）。null ならメインモニター。</summary>
+    public string? MonitorDeviceName { get; set; }
+
     /// <summary>ゲーム音を録音する再生デバイスの ID。null なら Windows の既定のデバイス。</summary>
     public string? OutputDeviceId { get; set; }
 
@@ -66,6 +72,8 @@ public sealed class AppSettings
         Framerate = Framerate,
         BitrateKbps = BitrateKbps,
         OutputSize = (OutputWidth, OutputHeight),
+        CaptureGameWindow = CaptureGameWindow,
+        MonitorDeviceName = MonitorDeviceName,
         CaptureMicrophone = CaptureMicrophone,
         SystemAudioDeviceId = OutputDeviceId,
         MicrophoneDeviceId = InputDeviceId,

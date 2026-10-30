@@ -13,6 +13,12 @@ public sealed record DeviceOption(string? Id, string Name)
     public override string ToString() => Name;
 }
 
+/// <summary>録画対象の選択肢。CaptureGameWindow が false なら MonitorDeviceName のモニター全体（null ならメインモニター）。</summary>
+public sealed record CaptureOption(bool CaptureGameWindow, string? MonitorDeviceName, string Name)
+{
+    public override string ToString() => Name;
+}
+
 /// <summary>設定画面。「保存」を押すまで <see cref="AppSettings"/> は変えない。</summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
@@ -22,6 +28,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         InputDevices = BuildOptions(AudioDevices.GetInputDevices(), settings.InputDeviceId);
         _selectedOutput = OutputDevices.First(o => o.Id == settings.OutputDeviceId);
         _selectedInput = InputDevices.First(o => o.Id == settings.InputDeviceId);
+        CaptureTargets = BuildCaptureTargets(Displays.GetDisplays(), settings.MonitorDeviceName);
+        _selectedCaptureTarget = CaptureTargets.First(o => o.CaptureGameWindow == settings.CaptureGameWindow
+            && (o.CaptureGameWindow || o.MonitorDeviceName == settings.MonitorDeviceName));
         _launchAtStartup = StartupRegistration.IsEnabled;
         _captureMicrophone = settings.CaptureMicrophone;
         _recordingsRoot = settings.RecordingsRoot;
@@ -35,9 +44,11 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<DeviceOption> OutputDevices { get; }
     public IReadOnlyList<DeviceOption> InputDevices { get; }
+    public IReadOnlyList<CaptureOption> CaptureTargets { get; }
 
     /// <summary>Windows へのサインイン時に自動起動するか（設定ファイルではなくレジストリに保存する）。</summary>
     [ObservableProperty] private bool _launchAtStartup;
+    [ObservableProperty] private CaptureOption _selectedCaptureTarget;
     [ObservableProperty] private DeviceOption _selectedOutput;
     [ObservableProperty] private DeviceOption _selectedInput;
     [ObservableProperty] private bool _captureMicrophone;
@@ -67,6 +78,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             return false;
         }
 
+        settings.CaptureGameWindow = SelectedCaptureTarget.CaptureGameWindow;
+        // ゲーム画面を選んだときは、見つからないときに撮るモニターとして前の選択を残す
+        if (!SelectedCaptureTarget.CaptureGameWindow) settings.MonitorDeviceName = SelectedCaptureTarget.MonitorDeviceName;
         settings.OutputDeviceId = SelectedOutput.Id;
         settings.InputDeviceId = SelectedInput.Id;
         settings.CaptureMicrophone = CaptureMicrophone;
@@ -74,6 +88,20 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.StorageLimitGb = LimitStorage ? limitGb : 0;
         Error = "";
         return true;
+    }
+
+    private static List<CaptureOption> BuildCaptureTargets(IReadOnlyList<DisplayInfo> displays, string? savedName)
+    {
+        var options = new List<CaptureOption>
+        {
+            new(true, null, "VALORANT のゲーム画面"),
+            new(false, null, "メインモニター全体"),
+        };
+        options.AddRange(displays.Select(d => new CaptureOption(false, d.DeviceName, $"モニター全体: {d.Name}（{d.DeviceName}）")));
+
+        if (savedName is not null && displays.All(d => d.DeviceName != savedName))
+            options.Add(new CaptureOption(false, savedName, "接続されていないモニター（メインモニターで録画）"));
+        return options;
     }
 
     private static List<DeviceOption> BuildOptions(IReadOnlyList<AudioDeviceInfo> devices, string? savedId)

@@ -105,13 +105,18 @@ public sealed class ScreenRecorderLibRecorder : IScreenRecorder
             return source;
         }
 
-        var display = _settings.MonitorDeviceName is { } name
+        // 指定のモニターが外されている場合はメインモニターを撮る
+        var name = _settings.MonitorDeviceName is { } saved && Displays.GetDisplays().Any(d => d.DeviceName == saved)
+            ? saved
+            : null;
+        var display = name is not null
             ? new DisplayRecordingSource(name)
             : DisplayRecordingSource.MainMonitor;
         display.IsCursorCaptureEnabled = false;
+        var monitor = name ?? "メインモニター";
         CaptureSourceDescription = _settings.CaptureGameWindow
-            ? $"モニター全体（VALORANT のウィンドウが見つからないため）"
-            : "モニター全体";
+            ? $"モニター全体（{monitor}, VALORANT のウィンドウが見つからないため）"
+            : $"モニター全体（{monitor}）";
         return display;
     }
 

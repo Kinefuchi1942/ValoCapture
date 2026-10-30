@@ -36,6 +36,17 @@
             </StackPanel>
         </Border>
 
+        <!-- 録画対象 -->
+        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock Text="録画対象" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                <TextBlock Text="録画する画面" Style="{StaticResource Label}" />
+                <ComboBox ItemsSource="{Binding CaptureTargets}" SelectedItem="{Binding SelectedCaptureTarget}" DisplayMemberPath="Name" />
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="「VALORANT のゲーム画面」はウィンドウモードでもゲーム部分だけを録画します（ゲームが見つからないときはモニター全体）。モニター全体を選ぶと、そのモニターに映っているものをすべて録画します。次の試合から反映されます。" />
+            </StackPanel>
+        </Border>
+
         <!-- 録画の音声 -->
         <Border Style="{StaticResource PanelBorder}" Padding="18,16">
             <StackPanel>
