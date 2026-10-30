@@ -12,6 +12,7 @@ ValoCapture は Windows 専用のアプリ（WPF / WinForms / ScreenRecorderLib�
 | App / Recording / Probe のビルド（net8.0-windows） | × | ○ |
 | アプリを起動しての動作確認（録画・UI・ゲーム検出） | × | ○ |
 | exe と配布用 zip の作成（`BuildExe.bat`） | × | ○ |
+| GitHub Releases への公開（タグのプッシュ） | ○ | ○ |
 | 録画データ・試合データを使う調査 | × ※ | ○ |
 
 ※ `recordings/`、`match-*.json`、`probe-log.jsonl`、`dist/` は `.gitignore` の対象なので、クラウドには存在しない。調査に必要なときは、該当部分をチャットに貼るか、個人データを除いたサンプルを `tests/` に追加する。
@@ -45,7 +46,7 @@ Windows 専用プロジェクトのコードもクラウドで書き換えられ
 6. **問題があればクラウドへ戻す**
    ビルドエラー・例外・おかしな挙動は、エラーメッセージやログをそのままクラウドセッションに貼って修正を依頼し、2 に戻る。
 7. **配布するとき**
-   `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げて（クラウドで頼んでもよい）、手元で `BuildExe.bat` をダブルクリックする。`dist/ValoCapture.exe` と `dist/ValoCapture-<バージョン>.zip` ができる。
+   手元で動作確認したあと、`src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げて `v<バージョン>` のタグをプッシュする（クラウドで頼んでもよい）。GitHub Actions が Windows 上で exe と zip を作り、GitHub Releases に公開する。手順は [development.md のリリース](development.md#リリース) を参照。手元で exe だけ作りたいときは `BuildExe.bat` をダブルクリックする。
 
 ### 手元で直接変更したとき
 
