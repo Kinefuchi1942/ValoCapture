@@ -557,8 +557,8 @@
         </Border>
     </Grid>
 
-    <!-- 削除したあとの通知 -->
-    <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24" Padding="16,6,8,6" CornerRadius="10"
+    <!-- 削除したあとの通知（タイムラインと操作にかからないよう、動画の下端に出す） -->
+    <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,150" Padding="16,6,8,6" CornerRadius="10"
             Background="{StaticResource Hover}" BorderBrush="{StaticResource RuleStrong}" BorderThickness="1">
         <Border.Style>
             <Style TargetType="Border">
