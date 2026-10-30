@@ -63,6 +63,37 @@
             </StackPanel>
         </Border>
 
+        <!-- 画質 -->
+        <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock Text="画質" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="解像度" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding Resolutions}" SelectedItem="{Binding SelectedResolution}" DisplayMemberPath="Name" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="フレームレート" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding Framerates}" SelectedItem="{Binding SelectedFramerate}" DisplayMemberPath="Name" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="ビットレート" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding SelectedBitrate}" DisplayMemberPath="Name" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock Style="{StaticResource Hint}" Text="{Binding SizeEstimateText}" />
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="ビットレートを上げると動きの激しい場面もきれいに残りますが、容量が増えます。解像度やフレームレートを上げるときは、ビットレートも上げるのがおすすめです。次の試合から反映されます。" />
+            </StackPanel>
+        </Border>
+
         <!-- 録画の音声 -->
         <Border Style="{StaticResource PanelBorder}" Padding="18,16">
             <StackPanel>

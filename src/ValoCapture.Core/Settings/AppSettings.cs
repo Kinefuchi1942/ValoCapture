@@ -17,6 +17,8 @@ public sealed class AppSettings
 
     public int Framerate { get; set; } = 60;
     public int BitrateKbps { get; set; } = 15_000;
+
+    /// <summary>出力解像度。幅か高さが 0 以下なら録画対象の解像度のまま。</summary>
     public int OutputWidth { get; set; } = 1920;
     public int OutputHeight { get; set; } = 1080;
     public bool CaptureMicrophone { get; set; }
@@ -71,7 +73,7 @@ public sealed class AppSettings
     {
         Framerate = Framerate,
         BitrateKbps = BitrateKbps,
-        OutputSize = (OutputWidth, OutputHeight),
+        OutputSize = OutputWidth > 0 && OutputHeight > 0 ? (OutputWidth, OutputHeight) : null,
         CaptureGameWindow = CaptureGameWindow,
         MonitorDeviceName = MonitorDeviceName,
         CaptureMicrophone = CaptureMicrophone,
