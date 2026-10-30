@@ -53,6 +53,7 @@ public partial class App : Application
         _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume);
         _vm.PropertyChanged += OnViewModelPropertyChanged;
         _vm.SettingsRequested += OpenSettings;
+        _vm.SessionDeleted += (s, ex) => WriteLog(ex is null ? $"ごみ箱へ移動: {s.Directory}" : $"ごみ箱へ移動できません: {s.Directory} {ex.Message}");
         _volumeSaveTimer.Tick += (_, _) => { _volumeSaveTimer.Stop(); _settings.Save(); };
 
         _host = new RecorderHost(_settings);
@@ -207,16 +208,15 @@ public partial class App : Application
         var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (_host?.CurrentSession?.Directory is { } recording) keep.Add(recording);
         if (_vm?.SelectedSession?.Session.Directory is { } viewing) keep.Add(viewing);
-        // 試合詳細の取得は最大 20 分ほど続く。それより古いまま止まっているものは異常終了の残りなので消してよい
-        var busySince = DateTimeOffset.UtcNow - TimeSpan.FromHours(6);
+        // ごみ箱への移動を待っている試合（「元に戻す」で戻せるように残す）
+        if (_vm?.PendingDeleteDirectory is { } pending) keep.Add(pending);
+        var now = DateTimeOffset.UtcNow;
 
         Task.Run(() =>
         {
             try
             {
-                return RecordingStorage.EnforceLimit(root, maxBytes, s =>
-                    !keep.Contains(s.Directory) &&
-                    !(s.Status is SessionStatus.Recording or SessionStatus.FetchingDetails && s.DetectedAt > busySince));
+                return RecordingStorage.EnforceLimit(root, maxBytes, s => !keep.Contains(s.Directory) && !s.IsBusy(now));
             }
             finally
             {
@@ -268,6 +268,7 @@ public partial class App : Application
 
         _exiting = true;
         _statusTimer.Stop();
+        if (_vm is not null) await _vm.CommitPendingDeleteAsync();
         if (_host is not null) await _host.DisposeAsync();
         _tray?.Dispose();
         _window?.Close();

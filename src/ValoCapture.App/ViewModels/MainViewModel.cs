@@ -1,6 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ValoCapture.App.Services;
 using ValoCapture.Core.Sessions;
 
 namespace ValoCapture.App.ViewModels;
@@ -17,6 +21,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _recordingsRoot = recordingsRoot;
         _volume = volume;
+        _toastTimer.Tick += (_, _) => _ = CommitPendingDeleteAsync();
         Reload();
     }
 
@@ -25,6 +30,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>設定画面を開いてほしいとき（App が開く）。</summary>
     public event Action? SettingsRequested;
+
+    /// <summary>試合をごみ箱へ移したとき（失敗したときは例外付き）。</summary>
+    public event Action<MatchSession, Exception?>? SessionDeleted;
 
     public ObservableCollection<SessionItemViewModel> Sessions { get; } = [];
 
@@ -53,7 +61,26 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _statusDetail = "";
     [ObservableProperty] private bool _isRecording;
 
-    partial void OnSelectedSessionChanged(SessionItemViewModel? value) => RefreshEvents();
+    // 削除
+    /// <summary>削除を確認している試合（確認ダイアログを出す）。</summary>
+    [ObservableProperty] private SessionItemViewModel? _deleteCandidate;
+    /// <summary>確認ダイアログに出すモード・日時・長さ・容量。</summary>
+    [ObservableProperty] private string _deleteCandidateDetail = "";
+    /// <summary>画面下の通知。空なら出さない。</summary>
+    [ObservableProperty] private string _toastText = "";
+    [ObservableProperty] private bool _canUndoDelete;
+
+    /// <summary>削除した直後の試合。通知を出している間は「元に戻す」で戻せるよう、ごみ箱へ移すのを待つ。</summary>
+    private SessionItemViewModel? _pendingDelete;
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+
+    public string? PendingDeleteDirectory => _pendingDelete?.Session.Directory;
+
+    partial void OnSelectedSessionChanged(SessionItemViewModel? value)
+    {
+        RequestDeleteCommand.NotifyCanExecuteChanged();
+        RefreshEvents();
+    }
     partial void OnShowKillsChanged(bool value) => RefreshEvents();
     partial void OnShowDeathsChanged(bool value) => RefreshEvents();
     partial void OnShowAssistsChanged(bool value) => RefreshEvents();
@@ -68,7 +95,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void Reload()
     {
-        var loaded = MatchSession.LoadAll(RecordingsRoot);
+        var loaded = MatchSession.LoadAll(RecordingsRoot).Where(s => s.Directory != PendingDeleteDirectory).ToList();
         var existing = Sessions.ToDictionary(s => s.Session.Directory);
 
         for (var i = Sessions.Count - 1; i >= 0; i--)
@@ -92,6 +119,95 @@ public sealed partial class MainViewModel : ObservableObject
             SelectedSession = Sessions.FirstOrDefault();
         else
             RefreshEvents();
+        // 録画が終わるなどして削除できるようになったかもしれない
+        RequestDeleteCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDelete))]
+    private void RequestDelete()
+    {
+        if (!CanDelete() || SelectedSession is not { } item) return;
+        var size = RecordingStorage.GetSize(item.Session);
+        var sizeText = size >= RecordingStorage.BytesPerGb
+            ? $"{(double)size / RecordingStorage.BytesPerGb:0.0} GB"
+            : $"{size / (1024 * 1024)} MB";
+        DeleteCandidateDetail = string.Join(" · ", new[] { item.QueueName, item.DateText, item.DurationText, sizeText }.Where(s => s.Length > 0));
+        DeleteCandidate = item;
+    }
+
+    private bool CanDelete() => SelectedSession is { } s && !s.Session.IsBusy(DateTimeOffset.UtcNow);
+
+    [RelayCommand]
+    private void CancelDelete() => DeleteCandidate = null;
+
+    /// <summary>一覧から消し、通知を出す。ごみ箱へ移すのは通知が消えてから。</summary>
+    [RelayCommand]
+    private async Task ConfirmDelete()
+    {
+        if (DeleteCandidate is not { } item) return;
+        DeleteCandidate = null;
+        // 前に削除した試合を先にごみ箱へ移す
+        await CommitPendingDeleteAsync();
+
+        _pendingDelete = item;
+        // 消した試合の次（なければ前）を選ぶ。選択を外すと再生中の動画が閉じられ、ファイルを移せるようになる
+        var index = Sessions.IndexOf(item);
+        SelectedSession = Sessions.ElementAtOrDefault(index + 1) ?? Sessions.ElementAtOrDefault(index - 1);
+        Sessions.Remove(item);
+        ShowToast($"「{item.MapName} {item.DateText}」をごみ箱に移動しました", canUndo: true);
+    }
+
+    [RelayCommand]
+    private void UndoDelete()
+    {
+        HideToast();
+        if (_pendingDelete is not { } item) return;
+        _pendingDelete = null;
+        Reload();
+        SelectedSession = Sessions.FirstOrDefault(s => s.Session.Directory == item.Session.Directory) ?? SelectedSession;
+    }
+
+    /// <summary>削除を待っている試合をごみ箱へ移す（通知が消えたときと終了するとき）。</summary>
+    public async Task CommitPendingDeleteAsync()
+    {
+        HideToast();
+        if (_pendingDelete is not { } item) return;
+        _pendingDelete = null;
+
+        try
+        {
+            await Task.Run(() => RecycleBin.MoveSession(item.Session));
+            SessionDeleted?.Invoke(item.Session, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            SessionDeleted?.Invoke(item.Session, ex);
+            Reload();
+            ShowToast($"「{item.MapName} {item.DateText}」を削除できませんでした: {ex.Message}", canUndo: false);
+        }
+    }
+
+    private void ShowToast(string text, bool canUndo)
+    {
+        ToastText = text;
+        CanUndoDelete = canUndo;
+        _toastTimer.Stop();
+        _toastTimer.Start();
+    }
+
+    private void HideToast()
+    {
+        _toastTimer.Stop();
+        ToastText = "";
+        CanUndoDelete = false;
+    }
+
+    [RelayCommand]
+    private void OpenInExplorer()
+    {
+        if (SelectedSession is not { } s) return;
+        var args = s.HasVideo ? $"/select,\"{s.VideoPath}\"" : $"\"{s.Session.Directory}\"";
+        Process.Start(new ProcessStartInfo("explorer.exe", args) { UseShellExecute = true });
     }
 
     [RelayCommand]

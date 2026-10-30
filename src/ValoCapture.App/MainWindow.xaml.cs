@@ -211,8 +211,24 @@ public partial class MainWindow : Window
         }
     }
 
+    // 右クリックした試合を選んでからメニューを出す
+    private void OnMatchRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement((ItemsControl)sender, (DependencyObject)e.OriginalSource) is ListBoxItem item)
+            item.IsSelected = true;
+    }
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // 削除の確認中は Enter / Esc だけ受け付ける
+        if (_vm.DeleteCandidate is not null)
+        {
+            if (e.Key == Key.Enter) _vm.ConfirmDeleteCommand.Execute(null);
+            else if (e.Key == Key.Escape) _vm.CancelDeleteCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Space: TogglePlay(); break;
@@ -227,6 +243,7 @@ public partial class MainWindow : Window
             case Key.Escape when _isFullscreen: ToggleFullscreen(); break;
             case Key.N: JumpToEvent(_vm.NextEvent(Player.Position)); break;
             case Key.P: JumpToEvent(_vm.PreviousEvent(Player.Position)); break;
+            case Key.Delete: _vm.RequestDeleteCommand.Execute(null); break;
             default: return;
         }
         e.Handled = true;

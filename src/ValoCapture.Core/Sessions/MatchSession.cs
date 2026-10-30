@@ -117,4 +117,11 @@ public sealed class MatchSession
     }
 
     [JsonIgnore] public bool HasMatchDetails => File.Exists(Path.Combine(Directory, MatchFile));
+
+    /// <summary>
+    /// 録画中・イベント取得中か（削除してはいけない）。
+    /// 試合詳細の取得は最大 20 分ほど続く。それより古いまま止まっているものは異常終了の残りとみなす。
+    /// </summary>
+    public bool IsBusy(DateTimeOffset now) =>
+        Status is SessionStatus.Recording or SessionStatus.FetchingDetails && DetectedAt > now - TimeSpan.FromHours(6);
 }
