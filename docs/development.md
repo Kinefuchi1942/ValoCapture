@@ -38,7 +38,7 @@
 - アプリは `Program.Main` の最初で `VelopackApp.Build().Run()` を呼ぶ（インストール・更新・アンインストール時の処理。アンインストール時は自動起動の登録を消す）
 - 更新の確認とダウンロードは `Services/AppUpdater.cs`。GitHub Releases の最新リリースを見る。Setup.exe で入れていない場合（bin から起動したときなど）は何もしない
 - 新しい版はダウンロードまで自動で行い、適用はトレイの「更新して再起動」で行う。録画中は適用しない
-- 自動更新を試すには、Velopack 対応の版を 2 つリリースし、古い方を Setup.exe で入れてから新しい方を公開する
+- 自動更新を手元で試すときは、`dotnet publish -p:Version=<新しい版>` と `dotnet vpk pack` で新しい版を別のフォルダに作り、環境変数 `VALOCAPTURE_UPDATE_SOURCE` にそのフォルダを入れてから、古い版のアプリを起動する（GitHub ではなくそのフォルダを確認する）
 
 ## リリース
 

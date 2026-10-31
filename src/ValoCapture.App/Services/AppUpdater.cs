@@ -1,3 +1,4 @@
+using System.IO;
 using Velopack;
 using Velopack.Sources;
 
@@ -11,7 +12,12 @@ public sealed class AppUpdater
 {
     private const string RepositoryUrl = "https://github.com/Kinefuchi1942/ValoCapture";
 
-    private readonly UpdateManager _manager = new(new GithubSource(RepositoryUrl, accessToken: null, prerelease: false));
+    /// <summary>手元で更新を試すときに、vpk pack の出力フォルダを更新元にする環境変数。</summary>
+    private const string LocalSourceVariable = "VALOCAPTURE_UPDATE_SOURCE";
+
+    private readonly UpdateManager _manager = Environment.GetEnvironmentVariable(LocalSourceVariable) is { Length: > 0 } dir
+        ? new(new SimpleFileSource(new DirectoryInfo(dir)))
+        : new(new GithubSource(RepositoryUrl, accessToken: null, prerelease: false));
 
     public bool IsInstalled => _manager.IsInstalled;
 
