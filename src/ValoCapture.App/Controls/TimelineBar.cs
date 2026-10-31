@@ -31,8 +31,14 @@ public sealed class TimelineBar : FrameworkElement
     public TimeSpan Duration { get => (TimeSpan)GetValue(DurationProperty); set => SetValue(DurationProperty, value); }
     public TimeSpan Position { get => (TimeSpan)GetValue(PositionProperty); set => SetValue(PositionProperty, value); }
 
-    /// <summary>クリック／ドラッグされた位置。</summary>
+    /// <summary>クリック／ドラッグされた位置。ドラッグ中はマウスが動くたびに来る。</summary>
     public event Action<TimeSpan>? SeekRequested;
+
+    /// <summary>ボタンを押してドラッグを始めた。</summary>
+    public event Action? DragStarted;
+
+    /// <summary>ボタンを離した（またはマウスのキャプチャを失った）。最後の位置を渡す。</summary>
+    public event Action<TimeSpan>? DragCompleted;
 
     public static Brush BrushFor(MatchEventType type) => type switch
     {
@@ -44,6 +50,7 @@ public sealed class TimelineBar : FrameworkElement
 
     private const double BarHeight = 8;
     private EventItemViewModel? _hovered;
+    private bool _dragging;
 
     public TimelineBar()
     {
@@ -106,15 +113,17 @@ public sealed class TimelineBar : FrameworkElement
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        CaptureMouse();
-        RaiseSeek(e.GetPosition(this).X);
         e.Handled = true;
+        if (Duration <= TimeSpan.Zero || !CaptureMouse()) return;
+        _dragging = true;
+        DragStarted?.Invoke();
+        RaiseSeek(e.GetPosition(this).X);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         var x = e.GetPosition(this).X;
-        if (IsMouseCaptured) RaiseSeek(x);
+        if (_dragging) RaiseSeek(x);
 
         // 6px 以内のいちばん近い印を吹き出しにする（ラウンド開始は除く）
         var near = Duration <= TimeSpan.Zero ? null : Items()
@@ -138,15 +147,30 @@ public sealed class TimelineBar : FrameworkElement
         InvalidateVisual();
     }
 
-    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e) => ReleaseMouseCapture();
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        if (_dragging) RaiseSeek(e.GetPosition(this).X);
+        ReleaseMouseCapture();
+    }
+
+    // ボタンを離したときも、別のウィンドウに切り替わってキャプチャを失ったときもここでドラッグを終える
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        if (!_dragging) return;
+        _dragging = false;
+        DragCompleted?.Invoke(Position);
+    }
 
     private IEnumerable<EventItemViewModel> Items() => Markers?.OfType<EventItemViewModel>() ?? [];
 
+    // つまみはシークの完了を待たずにその場で動かす
     private void RaiseSeek(double x)
     {
         if (Duration <= TimeSpan.Zero || ActualWidth <= 0) return;
         var ratio = Math.Clamp(x / ActualWidth, 0, 1);
-        SeekRequested?.Invoke(TimeSpan.FromMilliseconds(Duration.TotalMilliseconds * ratio));
+        Position = TimeSpan.FromMilliseconds(Duration.TotalMilliseconds * ratio);
+        SeekRequested?.Invoke(Position);
     }
 
     private double X(TimeSpan t, double width) =>

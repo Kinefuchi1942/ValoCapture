@@ -20,6 +20,12 @@ public partial class MainWindow : Window
     private bool _isPlaying;
     private TimeSpan _duration;
 
+    // シークバーのドラッグ中。シークは溜まると最後の位置の表示が遅れるので、間隔を空けて最新の位置だけ出す
+    private readonly DispatcherTimer _scrubTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };
+    private bool _isScrubbing;
+    private bool _resumeAfterScrub;
+    private TimeSpan? _pendingScrub;
+
     // 全画面にする前の状態
     private bool _isFullscreen;
     private WindowState _restoreState;
@@ -35,6 +41,7 @@ public partial class MainWindow : Window
         _vm.PropertyChanged += OnViewModelPropertyChanged;
         _positionTimer.Tick += (_, _) => UpdatePosition();
         _positionTimer.Start();
+        _scrubTimer.Tick += (_, _) => FlushScrub();
 
         OpenSelectedVideo();
     }
@@ -91,7 +98,13 @@ public partial class MainWindow : Window
 
     private void UpdatePosition()
     {
-        var pos = Player.Position;
+        // ドラッグ中はつまみをマウスに合わせたままにする（シークが追いつく前の古い位置で戻さない）
+        if (_isScrubbing) return;
+        ShowPosition(Player.Position);
+    }
+
+    private void ShowPosition(TimeSpan pos)
+    {
         Timeline.Position = pos;
         PositionRun.Text = pos.ToString(@"mm\:ss");
     }
@@ -101,7 +114,52 @@ public partial class MainWindow : Window
         if (t < TimeSpan.Zero) t = TimeSpan.Zero;
         if (_duration > TimeSpan.Zero && t > _duration) t = _duration;
         Player.Position = t;
-        UpdatePosition();
+        ShowPosition(t);
+    }
+
+    private void OnTimelineDragStarted()
+    {
+        _isScrubbing = true;
+        _resumeAfterScrub = _isPlaying;
+        if (_isPlaying) Pause();
+    }
+
+    private void OnTimelineSeek(TimeSpan t)
+    {
+        if (!_isScrubbing)
+        {
+            Seek(t);
+            return;
+        }
+
+        PositionRun.Text = t.ToString(@"mm\:ss");
+        _pendingScrub = t;
+        // 前のシークから間隔が空いていればすぐ出し、そうでなければタイマーで最新の位置だけ出す
+        if (!_scrubTimer.IsEnabled)
+        {
+            FlushScrub();
+            _scrubTimer.Start();
+        }
+    }
+
+    private void FlushScrub()
+    {
+        if (_pendingScrub is not { } t)
+        {
+            _scrubTimer.Stop();
+            return;
+        }
+        _pendingScrub = null;
+        Player.Position = t;
+    }
+
+    private void OnTimelineDragCompleted(TimeSpan t)
+    {
+        _scrubTimer.Stop();
+        _pendingScrub = null;
+        _isScrubbing = false;
+        Seek(t);
+        if (_resumeAfterScrub) Play();
     }
 
     private void Play()
@@ -140,7 +198,6 @@ public partial class MainWindow : Window
         // ダブルクリックで全画面の切り替え
         if (e.ClickCount == 2) ToggleFullscreen(); else TogglePlay();
     }
-    private void OnTimelineSeek(TimeSpan t) => Seek(t);
     private void OnNextEvent(object sender, RoutedEventArgs e) => JumpToEvent(_vm.NextEvent(Player.Position));
     private void OnPreviousEvent(object sender, RoutedEventArgs e) => JumpToEvent(_vm.PreviousEvent(Player.Position));
     private void OnToggleFullscreen(object sender, RoutedEventArgs e) => ToggleFullscreen();

@@ -377,7 +377,8 @@
             <!-- タイムライン -->
             <Border x:Name="TimelinePanel" Grid.Row="2" Style="{StaticResource PanelBorder}" Margin="0,12,0,0" Padding="16,16,16,8">
                 <StackPanel>
-                    <controls:TimelineBar x:Name="Timeline" Height="30" Markers="{Binding Events}" SeekRequested="OnTimelineSeek" />
+                    <controls:TimelineBar x:Name="Timeline" Height="30" Markers="{Binding Events}" SeekRequested="OnTimelineSeek"
+                                          DragStarted="OnTimelineDragStarted" DragCompleted="OnTimelineDragCompleted" />
                     <DockPanel Margin="0,6,0,0">
                         <TextBlock x:Name="DurationLabel" DockPanel.Dock="Right" Style="{StaticResource Num}" FontSize="11" Foreground="{StaticResource Dim}" />
                         <TextBlock Text="00:00" Style="{StaticResource Num}" FontSize="11" Foreground="{StaticResource Dim}" />
