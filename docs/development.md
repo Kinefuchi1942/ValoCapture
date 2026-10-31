@@ -23,12 +23,26 @@
 | --- | --- |
 | ビルドして起動 | `ValoCapture.bat` をダブルクリック（起動中のときはビルドせずにそのまま起動する） |
 | テスト | `dotnet test tests/ValoCapture.Core.Tests` |
-| exe と配布用 zip を作る | `BuildExe.bat` をダブルクリック → `dist/ValoCapture.exe` と `dist/ValoCapture-<バージョン>.zip` |
-| デスクトップにショートカットを作る | `powershell -ExecutionPolicy Bypass -File tools\create_shortcut.ps1`（先に exe を作っておく） |
+| インストーラーを作る | `BuildExe.bat` をダブルクリック → `dist/releases/ValoCapture-win-Setup.exe` など（下の「配布と自動更新」） |
+
+## 配布と自動更新
+
+配布と自動更新には [Velopack](https://velopack.io/) を使う。`tools/publish.ps1` は .NET 同梱のフォルダを `dist/app` に発行し、`dotnet vpk pack` で `dist/releases` に次のものを作る（vpk のバージョンは `.config/dotnet-tools.json` で固定し、`Velopack` パッケージと揃える）。
+
+| ファイル | 内容 |
+| --- | --- |
+| `ValoCapture-win-Setup.exe` | インストーラー。`%LocalAppData%\ValoCapture` に入れ、Visual C++ ランタイムも入れる |
+| `ValoCapture-win-Portable.zip` | インストールせずに使う版（展開したフォルダで自動更新もできる） |
+| `ValoCapture-<バージョン>-full.nupkg`、`-delta.nupkg`、`releases.win.json` | アプリが読む更新パッケージ |
+
+- アプリは `Program.Main` の最初で `VelopackApp.Build().Run()` を呼ぶ（インストール・更新・アンインストール時の処理。アンインストール時は自動起動の登録を消す）
+- 更新の確認とダウンロードは `Services/AppUpdater.cs`。GitHub Releases の最新リリースを見る。Setup.exe で入れていない場合（bin から起動したときなど）は何もしない
+- 新しい版はダウンロードまで自動で行い、適用はトレイの「更新して再起動」で行う。録画中は適用しない
+- 自動更新を試すには、Velopack 対応の版を 2 つリリースし、古い方を Setup.exe で入れてから新しい方を公開する
 
 ## リリース
 
-GitHub Releases への公開は GitHub Actions（`.github/workflows/release.yml`）が行う。`v` で始まるタグをプッシュすると、Windows のランナーでテストと `tools/publish.ps1` を実行し、`ValoCapture.exe` と `ValoCapture-<バージョン>.zip` を添付したリリースを作る。
+GitHub Releases への公開は GitHub Actions（`.github/workflows/release.yml`）が行う。`v` で始まるタグをプッシュすると、Windows のランナーでテストと `tools/publish.ps1` を実行する。前回のリリースを取ってきて差分の更新パッケージも作り、`dotnet vpk upload github` で Setup.exe・Portable.zip・更新パッケージを添付したリリースを作る。
 
 1. `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げてコミットし、`main` にプッシュする
 2. 同じバージョンのタグを付けてプッシュする（`<Version>` が `1.0.1` ならタグは `v1.0.1`。一致しないとワークフローが失敗する）
@@ -41,21 +55,20 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-exe は毎回同じ名前で添付するので、README の `releases/latest/download/ValoCapture.exe` は常に最新版を指す。進み具合は GitHub の「Actions」タブで確認できる。
+インストーラーは毎回同じ名前で添付するので、README の `releases/latest/download/ValoCapture-win-Setup.exe` は常に最新版を指す。進み具合は GitHub の「Actions」タブで確認できる。
 
 ## ツール
 
 | ファイル | 内容 |
 | --- | --- |
-| `tools/publish.ps1` | 単体 exe と配布用 zip の作成（`BuildExe.bat` とリリースのワークフローから呼ばれる） |
-| `tools/dist-readme.txt` | zip に同梱する説明書のひな形 |
+| `tools/publish.ps1` | インストーラーと更新パッケージの作成（`BuildExe.bat` とリリースのワークフローから呼ばれる） |
 | `tools/make_icon.py` | アプリアイコン（`Assets/app.ico`）の生成 |
 | `tools/calibrate_offset.py` | 録画のキルフィードから時刻補正の値を測る |
 | `tools/cloud-setup.sh` | クラウド環境に .NET 8 SDK を入れるセットアップスクリプト |
 
 ## クラウドでの開発
 
-Linux のクラウド環境でビルド・テストできるのは `ValoCapture.Core` と `tests/ValoCapture.Core.Tests` だけ。アプリの動作確認と exe / zip の作成は手元の Windows で行う。作業の分け方は [cloud-development.md](cloud-development.md) を参照。
+Linux のクラウド環境でビルド・テストできるのは `ValoCapture.Core` と `tests/ValoCapture.Core.Tests` だけ。アプリの動作確認とインストーラーの作成は手元の Windows で行う。作業の分け方は [cloud-development.md](cloud-development.md) を参照。
 
 ## 注意
 

@@ -11,7 +11,7 @@ ValoCapture は Windows 専用のアプリ（WPF / WinForms / ScreenRecorderLib�
 | `ValoCapture.Core.Tests` の実行 | ○ | ○ |
 | App / Recording / Probe のビルド（net8.0-windows） | × | ○ |
 | アプリを起動しての動作確認（録画・UI・ゲーム検出） | × | ○ |
-| exe と配布用 zip の作成（`BuildExe.bat`） | × | ○ |
+| インストーラーの作成（`BuildExe.bat`） | × | ○ |
 | GitHub Releases への公開（タグのプッシュ） | ○ | ○ |
 | 録画データ・試合データを使う調査 | × ※ | ○ |
 
@@ -46,7 +46,7 @@ Windows 専用プロジェクトのコードもクラウドで書き換えられ
 6. **問題があればクラウドへ戻す**
    ビルドエラー・例外・おかしな挙動は、エラーメッセージやログをそのままクラウドセッションに貼って修正を依頼し、2 に戻る。
 7. **配布するとき**
-   手元で動作確認したあと、`src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げて `v<バージョン>` のタグをプッシュする（クラウドで頼んでもよい）。GitHub Actions が Windows 上で exe と zip を作り、GitHub Releases に公開する。手順は [development.md のリリース](development.md#リリース) を参照。手元で exe だけ作りたいときは `BuildExe.bat` をダブルクリックする。
+   手元で動作確認したあと、`src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げて `v<バージョン>` のタグをプッシュする（クラウドで頼んでもよい）。GitHub Actions が Windows 上でインストーラーと更新パッケージを作り、GitHub Releases に公開する。手順は [development.md のリリース](development.md#リリース) を参照。手元でインストーラーだけ作りたいときは `BuildExe.bat` をダブルクリックする。
 
 ### 手元で直接変更したとき
 
