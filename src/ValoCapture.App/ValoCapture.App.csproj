@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -22,6 +23,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <!-- tools/make_icon.py で生成 -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Velopack の処理を WPF より先に行うため、App.xaml が生成する Main ではなく Program.Main から起動する -->
+    <StartupObject>ValoCapture.App.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
