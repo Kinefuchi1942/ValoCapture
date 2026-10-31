@@ -31,6 +31,12 @@ jobs:
           }
           "version=$version" >> $env:GITHUB_OUTPUT
 
+          # バージョンを上げるコミットの件名を「1.2.3: 主要な変更」にしておくと、それをリリースのタイトルにする
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $subject = git log -1 --format=%s
+          $title = if ($subject.StartsWith("${version}: ")) { "ValoCapture $subject" } else { "ValoCapture $version" }
+          "title=$title" >> $env:GITHUB_OUTPUT
+
       - name: テスト
         run: dotnet test tests/ValoCapture.Core.Tests -nologo
 
@@ -43,7 +49,7 @@ jobs:
       - name: リリースを作る
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          TITLE: ${{ steps.version.outputs.title }}
         run: |
           $notes = @"
           ## ダウンロード
@@ -53,7 +59,7 @@ jobs:
 
           使い方は [README](https://github.com/$env:GITHUB_REPOSITORY#readme) を参照してください。
           "@
-          gh release create $env:GITHUB_REF_NAME --title "ValoCapture $env:VERSION" --notes $notes --generate-notes
+          gh release create $env:GITHUB_REF_NAME --title $env:TITLE --notes $notes --generate-notes
           dotnet vpk upload github --repoUrl "https://github.com/$env:GITHUB_REPOSITORY" --token $env:GH_TOKEN `
-            -o dist/releases --merge --publish --tag $env:GITHUB_REF_NAME --releaseName "ValoCapture $env:VERSION"
+            -o dist/releases --merge --publish --tag $env:GITHUB_REF_NAME --releaseName $env:TITLE
           if ($LASTEXITCODE -ne 0) { throw 'リリースへの添付に失敗しました。' }

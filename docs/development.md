@@ -45,6 +45,8 @@
 GitHub Releases への公開は GitHub Actions（`.github/workflows/release.yml`）が行う。`v` で始まるタグをプッシュすると、Windows のランナーでテストと `tools/publish.ps1` を実行する。前回のリリースを取ってきて差分の更新パッケージも作り、`dotnet vpk upload github` で Setup.exe・Portable.zip・更新パッケージを添付したリリースを作る。
 
 1. `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げてコミットし、`main` にプッシュする（基本はパッチを上げる。マイナーやメジャーを上げるのは指示があったときだけ）
+   - コミットの件名は `1.0.1: シークバーのドラッグ後の再生の遅れを直す` のように「バージョン: 主要な変更」にする。Actions の実行一覧にはこの件名が出て、リリースのタイトルも `ValoCapture 1.0.1: …` になる（形が違うと `ValoCapture 1.0.1` だけになる）
+   - 変更が複数あるときは主なものを「、」でつなぐ
 2. 同じバージョンのタグを付けてプッシュする（`<Version>` が `1.0.1` ならタグは `v1.0.1`。一致しないとワークフローが失敗する）
 
 ```bash
