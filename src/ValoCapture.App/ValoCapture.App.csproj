@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- 配布する zip の名前と exe のプロパティに出る。配布し直すたびに上げる -->
-    <Version>1.4.2</Version>
+    <!-- 更新パッケージのバージョンと exe のプロパティに出る。配布し直すたびに上げる -->
+    <Version>1.4.3</Version>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
