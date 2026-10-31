@@ -183,4 +183,29 @@ public class MatchTimelineTests
         var json = Match(topKills: [Kill(10_000, 9_000, Me, "x")]);
         Assert.Null(MatchTimelineBuilder.Build(json, Me, null, null).Result);
     }
+
+    [Fact]
+    public void EstimateOffsetMs_UsesMedianLagOfLogRoundStarts()
+    {
+        var json = Match(rounds:
+        [
+            new { roundNum = 0, playerStats = new[] { new { kills = new[] { Kill(60_000, 20_000, Me, "x") } } } },
+            new { roundNum = 1, playerStats = new[] { new { kills = new[] { Kill(150_000, 30_000, "x", Me) } } } },
+            new { roundNum = 2, playerStats = new[] { new { kills = new[] { Kill(250_000, 50_000, "x", "y") } } } },
+            new { roundNum = 3, playerStats = new[] { new { kills = new[] { Kill(330_000, 30_000, "y", "x") } } } },
+        ]);
+        static DateTimeOffset At(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(GameStart + ms);
+        // ラウンド開始（40 / 120 / 200 / 300 秒）の 7.03 秒後にログの行。3 ラウンド目だけ 1 秒ずれていて、4 ラウンド目は行がない
+        var logs = new[] { At(47_030), At(127_040), At(208_030), At(10_000_000) };
+
+        Assert.Equal(7_040 + MatchTimelineBuilder.LogToKillFeedMs, MatchTimelineBuilder.EstimateOffsetMs(json, logs));
+    }
+
+    [Fact]
+    public void EstimateOffsetMs_ReturnsNull_WhenNoLogMatches()
+    {
+        var json = Match(topKills: [Kill(60_000, 20_000, Me, "x")]);
+        Assert.Null(MatchTimelineBuilder.EstimateOffsetMs(json, []));
+        Assert.Null(MatchTimelineBuilder.EstimateOffsetMs(json, [DateTimeOffset.FromUnixTimeMilliseconds(GameStart + 100_000)]));
+    }
 }

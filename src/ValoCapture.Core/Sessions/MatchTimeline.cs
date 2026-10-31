@@ -62,7 +62,7 @@ public static class MatchTimelineBuilder
 
     /// <param name="recordStartedAt">録画が始まった時刻。null なら VideoTimeMs はすべて null。</param>
     /// <param name="recordLength">録画の長さ。これを超えるイベントは録画範囲外とする。</param>
-    /// <param name="offsetMs">手動補正値（動画上の位置にそのまま足す）。</param>
+    /// <param name="offsetMs">時刻補正（動画上の位置にそのまま足す）。<see cref="EstimateOffsetMs"/> で求めるか、既定値を手動で調整する。</param>
     public static MatchTimeline Build(
         string matchDetailsJson,
         string myPuuid,
@@ -74,7 +74,7 @@ public static class MatchTimelineBuilder
         var root = doc.RootElement;
         var info = root.GetProperty("matchInfo");
         var gameStart = info.GetProperty("gameStartMillis").GetInt64();
-        var origin = FirstJoinMillis(root) is { } join ? join - JoinLeadMs : gameStart;
+        var origin = Origin(root);
 
         long? ToVideoTime(long gameTime)
         {
@@ -88,13 +88,8 @@ public static class MatchTimelineBuilder
         var kills = EnumerateKills(root).ToList();
         var events = new List<MatchEvent>();
 
-        // ラウンド開始時刻 = そのラウンド内のキルの gameTime − roundTime
-        foreach (var group in kills.GroupBy(k => k.Round))
-        {
-            var k = group.First();
-            var start = k.GameTime - k.RoundTime;
-            events.Add(new MatchEvent(MatchEventType.RoundStart, group.Key, start, ToVideoTime(start)));
-        }
+        foreach (var (round, start) in RoundStarts(kills))
+            events.Add(new MatchEvent(MatchEventType.RoundStart, round, start, ToVideoTime(start)));
 
         int myKills = 0, myDeaths = 0, myAssists = 0;
         foreach (var k in kills)
@@ -129,6 +124,55 @@ public static class MatchTimelineBuilder
             origin,
             CurrentVersion);
     }
+
+    /// <summary>
+    /// ログの戦闘開始の行は、試合詳細から求めたラウンド開始（gameTime の基準 + gameTime − roundTime）より 6.5〜7 秒遅い。
+    /// この差は試合ごとに 0.5 秒ほどばらつくが、1 試合の中では ±0.01 秒で一定。
+    /// </summary>
+    private const long ExpectedLogLagMs = 6_900;
+    private const long LogMatchWindowMs = 3_000;
+
+    /// <summary>
+    /// キルフィードの表示はログの戦闘開始の行の時刻 + roundTime より 0.24 秒早い
+    /// （2026-10-30〜31 のコンペティティブ 3 試合で 0.24 / 0.25 / 0.24 秒）。
+    /// </summary>
+    public const long LogToKillFeedMs = -240;
+
+    /// <summary>
+    /// ShooterGame.log のラウンドの戦闘開始時刻（<see cref="Riot.ShooterGameLog.ReadRoundStarts"/>）から、
+    /// <see cref="Build"/> に渡す時刻補正を求める。gameTime の基準とクライアントの時計の差を試合ごとに測るので、既定値より正確になる。
+    /// 対応するラウンドが見つからなければ（デスマッチなど）null。
+    /// </summary>
+    public static long? EstimateOffsetMs(string matchDetailsJson, IReadOnlyList<DateTimeOffset> logRoundStarts)
+    {
+        if (logRoundStarts.Count == 0) return null;
+        using var doc = JsonDocument.Parse(matchDetailsJson);
+        var root = doc.RootElement;
+        var origin = Origin(root);
+        var logs = logRoundStarts.Select(t => t.ToUnixTimeMilliseconds()).ToList();
+
+        // 各ラウンドを、予想される位置にいちばん近いログの行と対応させる
+        var lags = new List<long>();
+        foreach (var (_, start) in RoundStarts(EnumerateKills(root).ToList()))
+        {
+            var expected = origin + start + ExpectedLogLagMs;
+            var nearest = logs.MinBy(l => Math.Abs(l - expected));
+            if (Math.Abs(nearest - expected) <= LogMatchWindowMs) lags.Add(nearest - origin - start);
+        }
+        if (lags.Count == 0) return null;
+
+        // 取り違えたラウンドがあっても崩れないように中央値を使う
+        lags.Sort();
+        var median = lags.Count % 2 == 1 ? lags[lags.Count / 2] : (lags[lags.Count / 2 - 1] + lags[lags.Count / 2]) / 2;
+        return median + LogToKillFeedMs;
+    }
+
+    private static long Origin(JsonElement root) =>
+        FirstJoinMillis(root) is { } join ? join - JoinLeadMs : root.GetProperty("matchInfo").GetProperty("gameStartMillis").GetInt64();
+
+    // ラウンド開始時刻 = そのラウンド内のキルの gameTime − roundTime（戦闘フェーズの開始）
+    private static IEnumerable<(int Round, long Start)> RoundStarts(List<Kill> kills) =>
+        kills.GroupBy(k => k.Round).Select(g => (g.Key, g.First().GameTime - g.First().RoundTime));
 
     // 全プレイヤーの participationPeriods[].sessionStartTime の最小値（自分の参加が遅れたり再接続したりしても影響しない）
     private static long? FirstJoinMillis(JsonElement root)

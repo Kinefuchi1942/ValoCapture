@@ -49,9 +49,14 @@ public sealed class SessionOrchestrator
     /// （2026-10-28 のデスマッチ 2 試合で 6.33 秒 / 7.38 秒、2026-10-30 のコンペティティブで 6.34 秒。
     /// gameTime の 0 はクライアントの接続前のサーバー時刻で、ローカルのログ時刻とも一定の関係にない）。
     /// 中間値を使い、±0.5 秒程度の誤差は許容する。
+    /// ラウンド制のモードでは、試合詳細を取得したときにゲームのログのラウンド開始時刻から試合ごとの値を求めて置き換える
+    /// （<see cref="MatchTimelineBuilder.EstimateOffsetMs"/>）。既定値のまま使うのはデスマッチやログが残っていない場合。
     /// 試合ごとの正確な値は tools/calibrate_offset.py で測れる。
     /// </summary>
     public long DefaultOffsetMs { get; init; } = CalibratedOffsetMs;
+
+    /// <summary>ラウンドの時刻を読む VALORANT のログ。</summary>
+    public string GameLogPath { get; init; } = ShooterGameLog.DefaultPath;
 
     public MatchSession? Current => _current;
 
@@ -140,8 +145,9 @@ public sealed class SessionOrchestrator
         var result = await _recorder.StopAsync();
         session.RecordStoppedAt = result.StoppedAt;
         session.Status = SessionStatus.FetchingDetails;
+        SaveGameLog(session);
         Persist(session);
-        Write($"録画停止: {result.FilePath}（{(result.StoppedAt - result.StartedAt):mm\\:ss}）");
+        Write($"録画停止:{result.FilePath}（{(result.StoppedAt - result.StartedAt):mm\\:ss}）");
 
         Track(FinalizeAsync(session));
     }
@@ -171,6 +177,7 @@ public sealed class SessionOrchestrator
                 }
 
                 session.SaveJson(MatchSession.MatchFile, PrettyJson(json));
+                ApplyGameLogOffset(session, json);
                 var timeline = BuildTimeline(session, json);
                 session.SaveTimeline(timeline);
                 if (session.MapId.Length == 0) session.MapId = timeline.MapId;
@@ -186,6 +193,33 @@ public sealed class SessionOrchestrator
         }
 
         Fail(session, "試合詳細を取得できませんでした（リトライ上限）");
+    }
+
+    // ゲームのログは次にゲームを起動すると上書きされるので、録画の範囲のラウンドの行をセッションに残す
+    private void SaveGameLog(MatchSession session)
+    {
+        if (session.RecordStartedAt is not { } start || session.RecordStoppedAt is not { } stop) return;
+        try
+        {
+            var text = ShooterGameLog.TryReadText(GameLogPath);
+            if (text is null) return;
+            var lines = ShooterGameLog.ExtractRoundLines(text, start, stop);
+            if (lines.Count > 0) File.WriteAllLines(Path.Combine(session.Directory, MatchSession.GameLogFile), lines);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Write($"ゲームのログを保存できませんでした: {ex.Message}");
+        }
+    }
+
+    private void ApplyGameLogOffset(MatchSession session, string matchJson)
+    {
+        var path = Path.Combine(session.Directory, MatchSession.GameLogFile);
+        if (!File.Exists(path)) return;
+        var starts = ShooterGameLog.ReadRoundStarts(File.ReadAllLines(path));
+        if (MatchTimelineBuilder.EstimateOffsetMs(matchJson, starts) is not { } offset) return;
+        session.OffsetMs = offset;
+        Write($"時刻補正をゲームのログから求めました: {offset / 1000.0:+0.00;-0.00} 秒");
     }
 
     public static MatchTimeline BuildTimeline(MatchSession session, string matchJson) =>

@@ -8,7 +8,7 @@ public enum SessionStatus { Recording, FetchingDetails, Ready, Failed }
 
 /// <summary>
 /// 1 試合ぶんの録画セッション。セッションフォルダの session.json に保存する。
-/// フォルダ構成: session.json / video.mp4 / match.json（試合詳細）/ timeline.json（イベント）
+/// フォルダ構成: session.json / video.mp4 / match.json（試合詳細）/ timeline.json（イベント）/ game-log.txt（ゲームのログのラウンドの行）
 /// </summary>
 public sealed class MatchSession
 {
@@ -16,6 +16,7 @@ public sealed class MatchSession
     public const string VideoFile = "video.mp4";
     public const string MatchFile = "match.json";
     public const string TimelineFile = "timeline.json";
+    public const string GameLogFile = "game-log.txt";
     /// <summary>
     /// ブックマークの目印（中身は空）。録画中・イベント取得中は録画側が session.json を書き直すので、
     /// session.json には入れず別ファイルにする。
@@ -33,7 +34,9 @@ public sealed class MatchSession
     public DateTimeOffset DetectedAt { get; set; }
     public DateTimeOffset? RecordStartedAt { get; set; }
     public DateTimeOffset? RecordStoppedAt { get; set; }
-    /// <summary>動画とイベントの時刻ずれの手動補正（ms）。</summary>
+    /// <summary>
+    /// 動画とイベントの時刻ずれの補正（ms）。試合詳細を取得したときにゲームのログから求め、求められなければ既定値のまま。手動で調整できる。
+    /// </summary>
     public long OffsetMs { get; set; }
     public SessionStatus Status { get; set; }
     public string? Error { get; set; }
