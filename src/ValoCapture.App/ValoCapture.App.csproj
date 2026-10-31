@@ -12,7 +12,7 @@
 
   <PropertyGroup>
     <!-- 更新パッケージのバージョンと exe のプロパティに出る。配布し直すたびに上げる -->
-    <Version>1.4.5</Version>
+    <Version>1.4.6</Version>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
