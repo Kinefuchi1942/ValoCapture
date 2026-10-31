@@ -1,5 +1,6 @@
-# v1.2.3 のようなタグをプッシュすると、tools/publish.ps1 で exe と zip を作って GitHub Releases に公開する
-# 利用者は https://github.com/Kinefuchi1942/ValoCapture/releases/latest/download/ValoCapture.exe から常に最新版を落とせる
+# v1.2.3 のようなタグをプッシュすると、tools/publish.ps1 で Velopack のインストーラーと更新パッケージを作り、GitHub Releases に公開する
+# 利用者は https://github.com/Kinefuchi1942/ValoCapture/releases/latest/download/ValoCapture-win-Setup.exe から常に最新版を入れられる
+# 入れたあとはアプリが同じリリースの releases.win.json と *.nupkg を読んで自動更新する
 name: リリース
 
 on:
@@ -19,7 +20,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # タグと csproj の <Version> がずれていると、zip の名前や exe のプロパティが食い違う
+      # タグと csproj の <Version> がずれていると、更新パッケージのバージョンや exe のプロパティが食い違う
       - name: タグとバージョンの一致を確認
         id: version
         run: |
@@ -33,12 +34,12 @@ jobs:
       - name: テスト
         run: dotnet test tests/ValoCapture.Core.Tests -nologo
 
-      # BuildExe.bat と同じ Windows PowerShell で動かす
-      - name: exe と zip を作る
+      # BuildExe.bat と同じ Windows PowerShell で動かす。前回のリリースを取ってきて差分の更新パッケージも作る
+      - name: インストーラーと更新パッケージを作る
         shell: powershell
-        run: ./tools/publish.ps1
+        run: ./tools/publish.ps1 -RepoUrl "https://github.com/$env:GITHUB_REPOSITORY" -Token "${{ github.token }}"
 
-      # exe は名前を固定して、releases/latest/download/ValoCapture.exe が常に最新版を指すようにする
+      # 先に説明付きでリリースを作り、vpk upload --merge で Velopack のファイルを添付する
       - name: リリースを作る
         env:
           GH_TOKEN: ${{ github.token }}
@@ -47,11 +48,12 @@ jobs:
           $notes = @"
           ## ダウンロード
 
-          - **ValoCapture.exe** … これだけで動きます。好きなフォルダに置いてダブルクリックしてください
-          - **ValoCapture-$env:VERSION.zip** … exe と説明書（はじめにお読みください.txt）のセット
+          - **ValoCapture-win-Setup.exe** … インストーラーです。ダブルクリックするとインストールして起動します。以降の更新はアプリ内で行えます
+          - **ValoCapture-win-Portable.zip** … インストールせずに使う場合はこちら。好きなフォルダに展開して ValoCapture.exe を起動してください
 
           使い方は [README](https://github.com/$env:GITHUB_REPOSITORY#readme) を参照してください。
           "@
-          gh release create $env:GITHUB_REF_NAME `
-            dist/ValoCapture.exe "dist/ValoCapture-$env:VERSION.zip" `
-            --title "ValoCapture $env:VERSION" --notes $notes --generate-notes
+          gh release create $env:GITHUB_REF_NAME --title "ValoCapture $env:VERSION" --notes $notes --generate-notes
+          dotnet vpk upload github --repoUrl "https://github.com/$env:GITHUB_REPOSITORY" --token $env:GH_TOKEN `
+            -o dist/releases --merge --publish --tag $env:GITHUB_REF_NAME --releaseName "ValoCapture $env:VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'リリースへの添付に失敗しました。' }

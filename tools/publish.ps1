@@ -1,9 +1,19 @@
-﻿# dist\ValoCapture.exe（.NET 同梱の単体 exe）と、友人に渡す配布用の dist\ValoCapture-<バージョン>.zip を作る
-# SDK のない PC にもこの exe だけ渡せば動く。バージョンは src\ValoCapture.App\ValoCapture.App.csproj の <Version>
+﻿# Velopack でインストーラーと更新パッケージを dist\releases に作る（vpk のバージョンは .config\dotnet-tools.json）
+#   ValoCapture-win-Setup.exe   … 友人に渡すインストーラー（.NET と Visual C++ ランタイムも入れる）
+#   ValoCapture-win-Portable.zip … インストールせずに使う版（展開したフォルダで自動更新もできる）
+#   *.nupkg, releases.win.json   … アプリ内の自動更新が読む
+# バージョンは src\ValoCapture.App\ValoCapture.App.csproj の <Version>
 #   powershell -ExecutionPolicy Bypass -File tools\publish.ps1
+# -RepoUrl と -Token を渡すと、GitHub の最新リリースを取ってきて差分の更新パッケージも作る（リリースのワークフロー用）
+param(
+    [string]$RepoUrl,
+    [string]$Token
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $root 'dist'
+$app = Join-Path $dist 'app'
+$releases = Join-Path $dist 'releases'
 $csproj = Join-Path $root 'src\ValoCapture.App\ValoCapture.App.csproj'
 
 if (Get-Process ValoCapture, ValoCapture.App -ErrorAction SilentlyContinue) {
@@ -14,30 +24,28 @@ $version = ([xml](Get-Content $csproj -Encoding UTF8)).Project.PropertyGroup.Ver
 if (-not $version) { throw "$csproj に <Version> がありません。" }
 
 if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
-dotnet publish $csproj -p:PublishProfile=SingleFile -nologo -v q
+dotnet publish $csproj -p:PublishProfile=Velopack -nologo -v q
 if ($LASTEXITCODE -ne 0) { throw 'ビルドに失敗しました。' }
 
-# 参照先プロジェクト・パッケージのデバッグシンボルは配布に要らない
-Remove-Item (Join-Path $dist '*.pdb')
-# アセンブリ名は ValoCapture.App のまま、配布用の名前だけ変える
-$exe = Join-Path $dist 'ValoCapture.exe'
-Move-Item (Join-Path $dist 'ValoCapture.App.exe') $exe
+# アセンブリ名は ValoCapture.App のまま、配布用の名前だけ変える（exe は同じフォルダの ValoCapture.App.dll を読む）
+Move-Item (Join-Path $app 'ValoCapture.App.exe') (Join-Path $app 'ValoCapture.exe')
 
-# 同梱する説明書。メモ帳で確実に読めるよう BOM 付き UTF-8・CRLF にする
-$readme = Join-Path $dist 'はじめにお読みください.txt'
-$text = (Get-Content (Join-Path $PSScriptRoot 'dist-readme.txt') -Encoding UTF8 -Raw).Replace('{VERSION}', $version)
-[IO.File]::WriteAllText($readme, ($text -replace "`r?`n", "`r`n"), (New-Object Text.UTF8Encoding $true))
-
-# 展開すると ValoCapture フォルダができるようにする。日本語のファイル名が化けないよう UTF-8 で格納する
-Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$zip = Join-Path $dist "ValoCapture-$version.zip"
-$archive = [IO.Compression.ZipFile]::Open($zip, 'Create', [Text.Encoding]::UTF8)
+Push-Location $root
 try {
-    foreach ($file in $exe, $readme) {
-        [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-            $archive, $file, "ValoCapture/$(Split-Path -Leaf $file)", 'Optimal')
-    }
-} finally { $archive.Dispose() }
+    dotnet tool restore
+    if ($LASTEXITCODE -ne 0) { throw 'vpk を用意できませんでした。' }
 
-Write-Host "作成しました: $exe"
-Write-Host "配布用:       $zip"
+    if ($RepoUrl) {
+        # 最初の Velopack 版のように取ってくるものがなければ、差分なしで続ける
+        dotnet vpk download github --repoUrl $RepoUrl --token $Token -o $releases
+        if ($LASTEXITCODE -ne 0) { Write-Warning '前回のリリースを取得できなかったので、差分の更新パッケージは作りません。' }
+    }
+
+    dotnet vpk pack --packId ValoCapture --packVersion $version --packTitle ValoCapture --packAuthors Kinefuchi1942 `
+        --packDir $app --mainExe ValoCapture.exe --icon (Join-Path $root 'src\ValoCapture.App\Assets\app.ico') `
+        --framework vcredist143-x64 -o $releases
+    if ($LASTEXITCODE -ne 0) { throw 'パッケージの作成に失敗しました。' }
+} finally { Pop-Location }
+
+Write-Host "作成しました: $releases"
+Write-Host "配布用:       $(Join-Path $releases 'ValoCapture-win-Setup.exe')"
