@@ -26,6 +26,9 @@ public partial class MainWindow : Window
     private bool _resumeAfterScrub;
     private TimeSpan? _pendingScrub;
 
+    // 動画を置き換えて開き直したときに戻す再生位置と再生中かどうか
+    private (TimeSpan Position, bool Playing)? _restoreAfterOpen;
+
     // 全画面にする前の状態
     private bool _isFullscreen;
     private WindowState _restoreState;
@@ -53,6 +56,7 @@ public partial class MainWindow : Window
 
     private void OpenSelectedVideo()
     {
+        _restoreAfterOpen = null;
         Pause();
         Player.Close();
         SetDuration(TimeSpan.Zero);
@@ -89,6 +93,45 @@ public partial class MainWindow : Window
         SetDuration(Player.NaturalDuration.HasTimeSpan ? Player.NaturalDuration.TimeSpan : TimeSpan.Zero);
         ApplySpeed(CurrentSpeed());
         UpdatePosition();
+
+        if (_restoreAfterOpen is { } restore)
+        {
+            _restoreAfterOpen = null;
+            Seek(restore.Position);
+            if (restore.Playing) Play();
+        }
+    }
+
+    /// <summary>
+    /// 試合の動画ファイルを置き換える。開いている動画なら、いったん閉じて置き換え、同じ位置から開き直す。
+    /// </summary>
+    public async Task ReplaceVideoAsync(string directory, Func<Task> replace)
+    {
+        var session = _vm.SelectedSession;
+        if (session is null || Player.Source is null ||
+            !string.Equals(session.Session.Directory, directory, StringComparison.OrdinalIgnoreCase))
+        {
+            await replace();
+            return;
+        }
+
+        var restore = (Player.Position, _isPlaying);
+        Pause();
+        Player.Close();
+        Player.Source = null;
+        try
+        {
+            await replace();
+        }
+        finally
+        {
+            // 置き換えている間に別の試合を選んでいれば、そちらがもう開いている
+            if (_vm.SelectedSession == session)
+            {
+                OpenSelectedVideo();
+                _restoreAfterOpen = restore;
+            }
+        }
     }
 
     private void OnMediaEnded(object sender, RoutedEventArgs e) => Pause();

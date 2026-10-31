@@ -20,6 +20,7 @@ public partial class App : Application
     private Mutex? _singleInstance;
     private AppSettings _settings = new();
     private RecorderHost? _host;
+    private VideoDefragmenter? _defragmenter;
     private TrayIcon? _tray;
     private MainViewModel? _vm;
     private MainWindow? _window;
@@ -66,6 +67,9 @@ public partial class App : Application
         _host.StateChanged += _ => Dispatcher.BeginInvoke(UpdateStatus);
         _host.SessionChanged += s => Dispatcher.BeginInvoke(() => OnSessionChanged(s));
 
+        _defragmenter = new VideoDefragmenter((dir, replace) => Dispatcher.InvokeAsync(() => _window!.ReplaceVideoAsync(dir, replace)).Task.Unwrap());
+        _defragmenter.Log += WriteLog;
+
         _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, OpenSettings, () => _ = ExitAsync(), IsQueueSelected, ToggleQueue,
             () => _ = ApplyUpdateAsync());
 
@@ -81,7 +85,24 @@ public partial class App : Application
         StartupRegistration.RefreshIfEnabled();
         WriteLog($"起動: バージョン={AppVersion} 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)}");
         EnforceStorageLimit();
+        DefragmentRecordings();
         StartUpdateChecks();
+    }
+
+    /// <summary>
+    /// 断片化 MP4 のままの録画（以前の版で録ったもの・変換の途中で終了したもの）を通常の MP4 に変換する。
+    /// 録画中の試合は止めてから変換する（<see cref="OnSessionChanged"/>）。
+    /// </summary>
+    private void DefragmentRecordings()
+    {
+        var now = DateTimeOffset.UtcNow;
+        foreach (var session in MatchSession.LoadAll(_settings.RecordingsRoot))
+        {
+            // 異常終了して Recording のまま残った試合は変換する
+            if (session.Directory == _host?.CurrentSession?.Directory || session.Status == SessionStatus.Recording && session.IsBusy(now))
+                continue;
+            _defragmenter!.Enqueue(session);
+        }
     }
 
     /// <summary>今のバージョン（1.2.3 の形）。</summary>
@@ -160,6 +181,7 @@ public partial class App : Application
             case SessionStatus.FetchingDetails:
                 _tray!.Notify("録画を停止しました", $"{title} — 試合が終わるとイベントが追加されます");
                 EnforceStorageLimit();
+                _defragmenter!.Enqueue(session);
                 break;
             case SessionStatus.Ready:
                 _tray!.Notify("イベントを記録しました", title);
@@ -226,6 +248,7 @@ public partial class App : Application
                 _settings.RecordingsRoot = _vm!.RecordingsRoot;
                 _settings.Save();
                 _host!.OutputRoot = _vm.RecordingsRoot;
+                DefragmentRecordings();
                 break;
             case nameof(MainViewModel.Volume):
                 _settings.Volume = _vm!.Volume;
@@ -278,6 +301,7 @@ public partial class App : Application
         if (_vm?.SelectedSession?.Session.Directory is { } viewing) keep.Add(viewing);
         // ごみ箱への移動を待っている試合（「元に戻す」で戻せるように残す）
         if (_vm?.PendingDeleteDirectory is { } pending) keep.Add(pending);
+        if (_defragmenter?.ConvertingDirectory is { } converting) keep.Add(converting);
         var now = DateTimeOffset.UtcNow;
 
         Task.Run(() =>

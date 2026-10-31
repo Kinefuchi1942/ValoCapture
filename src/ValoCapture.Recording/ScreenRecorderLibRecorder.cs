@@ -149,7 +149,7 @@ public sealed class ScreenRecorderLibRecorder : IScreenRecorder
                 // （7 分 49 秒の録画で映像が 3.4 秒短くなった）。実際の取得時刻をタイムスタンプに使う
                 IsFixedFramerate = false,
                 IsHardwareEncodingEnabled = true,
-                // 異常終了してもそこまでの動画を再生できるようにする
+                // 異常終了してもそこまでの動画を再生できるようにする（シークが遅いので、録画を止めた後にアプリが通常の MP4 に変換する）
                 IsFragmentedMp4Enabled = true,
             },
             MouseOptions = new MouseOptions { IsMousePointerEnabled = false },
