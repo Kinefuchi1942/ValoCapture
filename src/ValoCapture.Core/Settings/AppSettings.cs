@@ -42,6 +42,9 @@ public sealed class AppSettings
     /// <summary>ビューアの再生音量（0〜1）。</summary>
     public double Volume { get; set; } = 0.8;
 
+    /// <summary>起動時と 1 日 1 回、新しいバージョンを確認してダウンロードしておくか（適用はユーザーの操作で行う）。</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ValoCapture", "settings.json");
 

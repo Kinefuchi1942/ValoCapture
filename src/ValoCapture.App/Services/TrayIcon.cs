@@ -10,16 +10,20 @@ public sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
+    // 新しい版をダウンロードし終えたときだけ表示する
+    private readonly ToolStripMenuItem _updateItem;
     // 待機中はアプリアイコン、録画中は状態がひと目で分かる赤丸
     private readonly Icon _idleIcon = LoadAppIcon();
     private readonly Icon _recordingIcon = CreateDotIcon(Color.FromArgb(0xff, 0x46, 0x55));
 
     /// <param name="isQueueSelected">録画対象に含まれているか。</param>
     /// <param name="toggleQueue">録画対象の切り替え（キュー ID, 含めるか）。</param>
+    /// <param name="applyUpdate">ダウンロード済みの新しい版に更新して再起動する。</param>
     public TrayIcon(Action openViewer, Action openFolder, Action openSettings, Action exit,
-        Func<string, bool> isQueueSelected, Action<string, bool> toggleQueue)
+        Func<string, bool> isQueueSelected, Action<string, bool> toggleQueue, Action applyUpdate)
     {
         _statusItem = new ToolStripMenuItem("起動中…") { Enabled = false };
+        _updateItem = new ToolStripMenuItem("更新して再起動", null, (_, _) => applyUpdate()) { Visible = false };
 
         var queues = new ToolStripMenuItem("録画するモード");
         foreach (var q in QueueIds.Selectable)
@@ -43,6 +47,7 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add(queues);
         menu.Items.Add("設定…", null, (_, _) => openSettings());
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(_updateItem);
         menu.Items.Add("終了", null, (_, _) => exit());
 
         _icon = new NotifyIcon
@@ -62,6 +67,13 @@ public sealed class TrayIcon : IDisposable
         var text = $"ValoCapture - {status}";
         _icon.Text = text.Length > 63 ? text[..63] : text;
         _icon.Icon = recording ? _recordingIcon : _idleIcon;
+    }
+
+    /// <summary>メニューに「更新して再起動」を出す。</summary>
+    public void ShowUpdate(string version)
+    {
+        _updateItem.Text = $"バージョン {version} に更新して再起動";
+        _updateItem.Visible = true;
     }
 
     public void Notify(string title, string message) =>

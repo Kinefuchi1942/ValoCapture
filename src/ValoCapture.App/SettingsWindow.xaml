@@ -143,6 +143,31 @@
                         <TextBlock Style="{StaticResource Hint}" Text="{Binding UsageText}" FontFamily="{StaticResource UiFont}" />
                     </StackPanel>
                 </Border>
+
+                <!-- アップデート -->
+                <Border Style="{StaticResource PanelBorder}" Padding="18,16" Margin="0,14,0,0">
+                    <StackPanel>
+                        <TextBlock Text="アップデート" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                        <CheckBox Content="新しいバージョンを自動で確認する" IsChecked="{Binding CheckForUpdates}" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="起動時と 1 日 1 回確認し、新しいバージョンがあればダウンロードしておきます。更新はタスクトレイのメニューの「更新して再起動」で行います。" />
+                        <DockPanel Margin="0,14,0,0">
+                            <Button DockPanel.Dock="Right" Content="今すぐ確認" Click="OnCheckForUpdates">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCheckingUpdate}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <TextBlock Text="{Binding VersionText}" Foreground="{StaticResource Soft}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="{Binding UpdateStatusText}" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
 

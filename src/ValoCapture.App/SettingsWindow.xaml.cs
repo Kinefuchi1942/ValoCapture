@@ -12,12 +12,29 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsViewModel _vm;
     private readonly AppSettings _settings;
+    private readonly Func<Task<string>> _checkForUpdates;
 
-    public SettingsWindow(AppSettings settings)
+    /// <param name="checkForUpdates">新しい版を確認し、結果を表示する文で返す。</param>
+    public SettingsWindow(AppSettings settings, Func<Task<string>> checkForUpdates)
     {
         InitializeComponent();
         _settings = settings;
+        _checkForUpdates = checkForUpdates;
         DataContext = _vm = new SettingsViewModel(settings);
+    }
+
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e)
+    {
+        _vm.IsCheckingUpdate = true;
+        _vm.UpdateStatusText = "確認しています…";
+        try
+        {
+            _vm.UpdateStatusText = await _checkForUpdates();
+        }
+        finally
+        {
+            _vm.IsCheckingUpdate = false;
+        }
     }
 
     private void OnBrowseFolder(object sender, RoutedEventArgs e)

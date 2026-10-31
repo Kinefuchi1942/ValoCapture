@@ -30,6 +30,11 @@ public partial class App : Application
     private int _cleanupRunning;
     // 音量スライダーを動かしている間に何度も保存しないよう、止まってから保存する
     private readonly DispatcherTimer _volumeSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly AppUpdater _updater = new();
+    private readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromDays(1) };
+    private bool _checkingUpdate;
+    /// <summary>ダウンロード済みで、再起動すれば適用できる新しい版。</summary>
+    private Velopack.VelopackAsset? _readyUpdate;
 
     private static string LogPath => Path.Combine(Path.GetDirectoryName(AppSettings.DefaultPath)!, "app.log");
 
@@ -61,7 +66,8 @@ public partial class App : Application
         _host.StateChanged += _ => Dispatcher.BeginInvoke(UpdateStatus);
         _host.SessionChanged += s => Dispatcher.BeginInvoke(() => OnSessionChanged(s));
 
-        _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, OpenSettings, () => _ = ExitAsync(), IsQueueSelected, ToggleQueue);
+        _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, OpenSettings, () => _ = ExitAsync(), IsQueueSelected, ToggleQueue,
+            () => _ = ApplyUpdateAsync());
 
         _window = new MainWindow(_vm);
         _window.Closing += OnWindowClosing;
@@ -73,8 +79,70 @@ public partial class App : Application
 
         _host.Start();
         StartupRegistration.RefreshIfEnabled();
-        WriteLog($"起動: 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)}");
+        WriteLog($"起動: バージョン={AppVersion} 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)}");
         EnforceStorageLimit();
+        StartUpdateChecks();
+    }
+
+    /// <summary>今のバージョン（1.2.3 の形）。</summary>
+    public static string AppVersion => typeof(App).Assembly.GetName().Version?.ToString(3) ?? "";
+
+    private void StartUpdateChecks()
+    {
+        if (!_updater.IsInstalled) return;
+        _updateTimer.Tick += (_, _) => { if (_settings.CheckForUpdates) _ = CheckForUpdatesAsync(); };
+        _updateTimer.Start();
+        // 起動直後は録画の準備などと重ならないよう少し待ってから確認する
+        Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            if (_settings.CheckForUpdates) await CheckForUpdatesAsync();
+        });
+    }
+
+    /// <summary>新しい版を確認し、あればダウンロードしてトレイで知らせる。結果を設定画面に出す文で返す。</summary>
+    private async Task<string> CheckForUpdatesAsync()
+    {
+        if (!_updater.IsInstalled) return "インストール版ではないため、自動更新は使えません";
+        if (_checkingUpdate) return "確認中です";
+
+        _checkingUpdate = true;
+        try
+        {
+            var update = await _updater.CheckAndDownloadAsync();
+            if (update is null) return $"最新のバージョンです（{AppVersion}）";
+
+            var version = update.Version.ToString();
+            if (_readyUpdate?.Version.ToString() != version)
+            {
+                _readyUpdate = update;
+                WriteLog($"新しいバージョンをダウンロード: {version}");
+                _tray!.ShowUpdate(version);
+                _tray.Notify($"バージョン {version} に更新できます", "タスクトレイのメニューの「更新して再起動」から更新できます");
+            }
+            return $"バージョン {version} をダウンロードしました。タスクトレイのメニューの「更新して再起動」から更新できます";
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"更新の確認に失敗: {ex.Message}");
+            return $"更新を確認できませんでした: {ex.Message}";
+        }
+        finally
+        {
+            _checkingUpdate = false;
+        }
+    }
+
+    private async Task ApplyUpdateAsync()
+    {
+        if (_readyUpdate is not { } update) return;
+        if (_host?.CurrentSession is not null)
+        {
+            MessageBox.Show("録画中は更新できません。試合が終わってからもう一度お試しください。", "ValoCapture");
+            return;
+        }
+        WriteLog($"バージョン {update.Version} に更新して再起動");
+        await ExitAsync(update);
     }
 
     private void OnSessionChanged(MatchSession session)
@@ -175,7 +243,7 @@ public partial class App : Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings);
+        _settingsWindow = new SettingsWindow(_settings, CheckForUpdatesAsync);
         if (_window!.IsVisible) _settingsWindow.Owner = _window;
         else _settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
@@ -259,20 +327,28 @@ public partial class App : Application
         _window.Hide();
     }
 
-    private async Task ExitAsync()
+    /// <param name="update">指定すると、終了後にこの版へ更新して起動し直す。</param>
+    private async Task ExitAsync(Velopack.VelopackAsset? update = null)
     {
         if (_exiting) return;
-        if (_host?.CurrentSession is not null &&
+        if (update is null && _host?.CurrentSession is not null &&
             MessageBox.Show("録画中です。録画を停止して終了しますか？", "ValoCapture", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
 
         _exiting = true;
         _statusTimer.Stop();
+        _updateTimer.Stop();
         if (_vm is not null) await _vm.CommitPendingDeleteAsync();
         if (_host is not null) await _host.DisposeAsync();
         _tray?.Dispose();
         _window?.Close();
         WriteLog("終了");
+        // 更新プログラムはこのプロセスの終了を待ってから入れ替えるので、録画の後始末が済んでから起動する
+        if (update is not null)
+        {
+            try { _updater.ApplyAfterExit(update); }
+            catch (Exception ex) { WriteLog($"更新を開始できません: {ex.Message}"); }
+        }
         Shutdown();
     }
 

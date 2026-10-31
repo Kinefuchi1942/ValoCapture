@@ -64,6 +64,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Bitrates = BuildNumbers([8_000, 15_000, 25_000, 40_000], settings.BitrateKbps, BitrateName);
         _selectedBitrate = Bitrates.First(o => o.Value == settings.BitrateKbps);
         _launchAtStartup = StartupRegistration.IsEnabled;
+        _checkForUpdates = settings.CheckForUpdates;
         _captureMicrophone = settings.CaptureMicrophone;
         _recordingsRoot = settings.RecordingsRoot;
         _limitStorage = settings.StorageLimitGb > 0;
@@ -88,6 +89,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Windows へのサインイン時に自動起動するか（設定ファイルではなくレジストリに保存する）。</summary>
     [ObservableProperty] private bool _launchAtStartup;
+    [ObservableProperty] private bool _checkForUpdates;
+    [ObservableProperty] private bool _isCheckingUpdate;
+    [ObservableProperty] private string _updateStatusText = "";
+    public string VersionText { get; } = $"現在のバージョン: {App.AppVersion}";
     [ObservableProperty] private CaptureOption _selectedCaptureTarget;
     [ObservableProperty] private ResolutionOption _selectedResolution;
     [ObservableProperty] private NumberOption _selectedFramerate;
@@ -154,6 +159,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.CaptureMicrophone = CaptureMicrophone;
         settings.RecordingsRoot = RecordingsRoot;
         settings.StorageLimitGb = LimitStorage ? limitGb : 0;
+        settings.CheckForUpdates = CheckForUpdates;
         Error = "";
         return true;
     }
