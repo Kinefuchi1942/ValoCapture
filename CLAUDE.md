@@ -6,7 +6,7 @@
 - 作業ブランチや PR は作らず、`main` に直接コミットしてプッシュする。ブランチを切るのは利用者から指示があったときだけ。
 - クラウドと手元の Windows での作業の分け方は `docs/cloud-development.md` を参照。
 - リリースは利用者から指示があったときだけ行う。`src/` 配下など配布する exe に影響する修正をしても、指示がなければ `<Version>` は上げず、タグも付けない（`main` へのコミットとプッシュまでで止める）。指示されたら次の手順で行う。
-  1. `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げる（不具合修正はパッチ、機能追加はマイナー）
+  1. `src/ValoCapture.App/ValoCapture.App.csproj` の `<Version>` を上げる（機能追加を含めて基本はパッチを上げる。マイナーやメジャーは利用者から指示があったときだけ）
   2. `main` にコミットしてプッシュする
   3. `main` の最新コミットに `v<Version>` のタグを付けてプッシュする（`.github/workflows/release.yml` が GitHub Releases に公開する）
   4. Actions の成功と、リリースに Setup.exe・Portable.zip・更新パッケージ（nupkg、releases.win.json）が添付されたことを確認して報告する
