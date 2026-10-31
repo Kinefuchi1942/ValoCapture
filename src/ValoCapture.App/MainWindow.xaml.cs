@@ -244,6 +244,8 @@ public partial class MainWindow : Window
     private void OnNextEvent(object sender, RoutedEventArgs e) => JumpToEvent(_vm.NextEvent(Player.Position));
     private void OnPreviousEvent(object sender, RoutedEventArgs e) => JumpToEvent(_vm.PreviousEvent(Player.Position));
     private void OnToggleFullscreen(object sender, RoutedEventArgs e) => ToggleFullscreen();
+    private void OnClipStart(object sender, RoutedEventArgs e) => _vm.SetClipStart(Player.Position);
+    private void OnClipEnd(object sender, RoutedEventArgs e) => _vm.SetClipEnd(Player.Position);
 
     private void OnEventClick(object sender, MouseButtonEventArgs e)
     {
@@ -311,8 +313,8 @@ public partial class MainWindow : Window
         }
     }
 
-    // 右クリックした試合を選んでからメニューを出す
-    private void OnMatchRightButtonDown(object sender, MouseButtonEventArgs e)
+    // 右クリックした試合・イベントを選んでからメニューを出す
+    private void OnListRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (ItemsControl.ContainerFromElement((ItemsControl)sender, (DependencyObject)e.OriginalSource) is ListBoxItem item)
             item.IsSelected = true;
@@ -343,6 +345,8 @@ public partial class MainWindow : Window
             case Key.Escape when _isFullscreen: ToggleFullscreen(); break;
             case Key.N: JumpToEvent(_vm.NextEvent(Player.Position)); break;
             case Key.P: JumpToEvent(_vm.PreviousEvent(Player.Position)); break;
+            case Key.I: _vm.SetClipStart(Player.Position); break;
+            case Key.O: _vm.SetClipEnd(Player.Position); break;
             case Key.Delete: _vm.RequestDeleteCommand.Execute(null); break;
             default: return;
         }

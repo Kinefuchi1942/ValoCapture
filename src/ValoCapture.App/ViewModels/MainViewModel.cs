@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ValoCapture.App.Services;
+using ValoCapture.Core.Recording;
 using ValoCapture.Core.Sessions;
 
 namespace ValoCapture.App.ViewModels;
@@ -16,6 +17,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>この間隔以内にデスを挟まず続いたキルを「連続キル」とする。</summary>
     private const long StreakGapMs = 6_000;
+
+    /// <summary>イベントからクリップを作るとき、何秒前から何秒後までにするか。</summary>
+    private static readonly TimeSpan EventClipBefore = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan EventClipAfter = TimeSpan.FromSeconds(3);
 
     public MainViewModel(string recordingsRoot, double volume)
     {
@@ -33,6 +38,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>試合をごみ箱へ移したとき（失敗したときは例外付き）。</summary>
     public event Action<MatchSession, Exception?>? SessionDeleted;
+
+    /// <summary>クリップを書き出したとき（クリップのパス。失敗したときは例外付き）。</summary>
+    public event Action<string, Exception?>? ClipSaved;
 
     public ObservableCollection<SessionItemViewModel> Sessions { get; } = [];
 
@@ -68,7 +76,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _deleteCandidateDetail = "";
     /// <summary>画面下の通知。空なら出さない。</summary>
     [ObservableProperty] private string _toastText = "";
-    [ObservableProperty] private bool _canUndoDelete;
+    /// <summary>通知の右のボタン（「元に戻す」など）。空なら出さない。</summary>
+    [ObservableProperty] private string _toastActionText = "";
+    private Action? _toastAction;
 
     /// <summary>削除した直後の試合。通知を出している間は「元に戻す」で戻せるよう、ごみ箱へ移すのを待つ。</summary>
     private SessionItemViewModel? _pendingDelete;
@@ -76,9 +86,32 @@ public sealed partial class MainViewModel : ObservableObject
 
     public string? PendingDeleteDirectory => _pendingDelete?.Session.Directory;
 
+    // クリップ
+    /// <summary>クリップの範囲（動画内の時刻）。I / O キーかタイムラインの下のボタンで決める。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ClipRangeText))]
+    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(ClearClipCommand))]
+    private TimeSpan? _clipStart;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ClipRangeText))]
+    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(ClearClipCommand))]
+    private TimeSpan? _clipEnd;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(SaveEventClipCommand))]
+    private bool _isSavingClip;
+
+    /// <summary>「01:23 – 01:41（18 秒）」。決めていない側は「--:--」。</summary>
+    public string ClipRangeText =>
+        ClipStart is null && ClipEnd is null ? "範囲を決めていません"
+        : $"{ClipTime(ClipStart)} – {ClipTime(ClipEnd)}" +
+          (ClipStart is { } s && ClipEnd is { } e ? $"（{(e - s).TotalSeconds:0} 秒）" : "");
+
+    private static string ClipTime(TimeSpan? t) => t is { } v ? v.ToString(@"mm\:ss") : "--:--";
+
     partial void OnSelectedSessionChanged(SessionItemViewModel? value)
     {
         RequestDeleteCommand.NotifyCanExecuteChanged();
+        ClipStart = ClipEnd = null;
         RefreshEvents();
     }
     partial void OnShowKillsChanged(bool value) => RefreshEvents();
@@ -154,10 +187,9 @@ public sealed partial class MainViewModel : ObservableObject
         var index = Sessions.IndexOf(item);
         SelectedSession = Sessions.ElementAtOrDefault(index + 1) ?? Sessions.ElementAtOrDefault(index - 1);
         Sessions.Remove(item);
-        ShowToast($"「{item.MapName} {item.DateText}」をごみ箱に移動しました", canUndo: true);
+        ShowToast($"「{item.MapName} {item.DateText}」をごみ箱に移動しました", "元に戻す", UndoDelete);
     }
 
-    [RelayCommand]
     private void UndoDelete()
     {
         HideToast();
@@ -183,14 +215,15 @@ public sealed partial class MainViewModel : ObservableObject
         {
             SessionDeleted?.Invoke(item.Session, ex);
             Reload();
-            ShowToast($"「{item.MapName} {item.DateText}」を削除できませんでした: {ex.Message}", canUndo: false);
+            ShowToast($"「{item.MapName} {item.DateText}」を削除できませんでした: {ex.Message}");
         }
     }
 
-    private void ShowToast(string text, bool canUndo)
+    private void ShowToast(string text, string actionText = "", Action? action = null)
     {
         ToastText = text;
-        CanUndoDelete = canUndo;
+        ToastActionText = action is null ? "" : actionText;
+        _toastAction = action;
         _toastTimer.Stop();
         _toastTimer.Start();
     }
@@ -199,15 +232,89 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _toastTimer.Stop();
         ToastText = "";
-        CanUndoDelete = false;
+        ToastActionText = "";
+        _toastAction = null;
     }
+
+    [RelayCommand]
+    private void ToastAction() => _toastAction?.Invoke();
 
     [RelayCommand]
     private void OpenInExplorer()
     {
         if (SelectedSession is not { } s) return;
-        var args = s.HasVideo ? $"/select,\"{s.VideoPath}\"" : $"\"{s.Session.Directory}\"";
-        Process.Start(new ProcessStartInfo("explorer.exe", args) { UseShellExecute = true });
+        if (s.HasVideo) ShowInExplorer(s.VideoPath);
+        else Process.Start(new ProcessStartInfo("explorer.exe", $"\"{s.Session.Directory}\"") { UseShellExecute = true });
+    }
+
+    private static void ShowInExplorer(string path) =>
+        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+
+    /// <summary>クリップの始まりを決める。終わりより後なら終わりを決め直してもらう。</summary>
+    public void SetClipStart(TimeSpan position)
+    {
+        if (SelectedSession?.HasVideo != true) return;
+        ClipStart = position;
+        if (ClipEnd <= position) ClipEnd = null;
+    }
+
+    /// <summary>クリップの終わりを決める。始まりより前なら始まりを決め直してもらう。</summary>
+    public void SetClipEnd(TimeSpan position)
+    {
+        if (SelectedSession?.HasVideo != true) return;
+        ClipEnd = position;
+        if (ClipStart >= position) ClipStart = null;
+    }
+
+    [RelayCommand(CanExecute = nameof(HasClipRange))]
+    private void ClearClip() => ClipStart = ClipEnd = null;
+
+    private bool HasClipRange() => ClipStart is not null || ClipEnd is not null;
+
+    [RelayCommand(CanExecute = nameof(CanSaveClip))]
+    private Task SaveClip() => SaveClipAsync(ClipStart!.Value, ClipEnd!.Value);
+
+    private bool CanSaveClip() => !IsSavingClip && ClipStart is { } s && ClipEnd is { } e && e > s;
+
+    /// <summary>イベントの少し前から少し後までをクリップにする。</summary>
+    [RelayCommand(CanExecute = nameof(CanSaveEventClip))]
+    private Task SaveEventClip(EventItemViewModel? item) =>
+        item is null ? Task.CompletedTask : SaveClipAsync(item.VideoTime - EventClipBefore, item.VideoTime + EventClipAfter);
+
+    private bool CanSaveEventClip(EventItemViewModel? _) => !IsSavingClip;
+
+    /// <summary>選んでいる試合の動画から範囲を切り出し、録画フォルダの clips に書く。</summary>
+    private async Task SaveClipAsync(TimeSpan start, TimeSpan end)
+    {
+        if (IsSavingClip || SelectedSession is not { HasVideo: true } item) return;
+        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
+
+        IsSavingClip = true;
+        // 前に削除した試合を先にごみ箱へ移す（通知を置き換えると「元に戻す」が押せなくなる）
+        await CommitPendingDeleteAsync();
+        ShowToast("クリップを書き出しています…");
+
+        var path = ClipStorage.NewPath(RecordingsRoot, item.Session, start, end);
+        try
+        {
+            var range = await Task.Run(() =>
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                return Mp4Remuxer.Clip(item.VideoPath, path, start, end);
+            });
+            ClipSaved?.Invoke(path, null);
+            ShowToast($"クリップを保存しました（{(range.End - range.Start).TotalSeconds:0} 秒）", "表示", () => ShowInExplorer(path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            try { File.Delete(path); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            ClipSaved?.Invoke(path, ex);
+            ShowToast($"クリップを保存できませんでした: {ex.Message}");
+        }
+        finally
+        {
+            IsSavingClip = false;
+        }
     }
 
     [RelayCommand]

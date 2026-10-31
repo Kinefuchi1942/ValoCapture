@@ -222,7 +222,7 @@
 
             <ListBox ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}"
                      ItemContainerStyle="{StaticResource MatchItemStyle}" ToolTip="{Binding RecordingsRoot}"
-                     PreviewMouseRightButtonDown="OnMatchRightButtonDown">
+                     PreviewMouseRightButtonDown="OnListRightButtonDown">
                 <ListBox.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="エクスプローラーで開く" Command="{Binding OpenInExplorerCommand}">
@@ -378,11 +378,27 @@
             <Border x:Name="TimelinePanel" Grid.Row="2" Style="{StaticResource PanelBorder}" Margin="0,12,0,0" Padding="16,16,16,8">
                 <StackPanel>
                     <controls:TimelineBar x:Name="Timeline" Height="30" Markers="{Binding Events}" SeekRequested="OnTimelineSeek"
+                                          ClipStart="{Binding ClipStart}" ClipEnd="{Binding ClipEnd}"
                                           DragStarted="OnTimelineDragStarted" DragCompleted="OnTimelineDragCompleted" />
-                    <DockPanel Margin="0,6,0,0">
-                        <TextBlock x:Name="DurationLabel" DockPanel.Dock="Right" Style="{StaticResource Num}" FontSize="11" Foreground="{StaticResource Dim}" />
-                        <TextBlock Text="00:00" Style="{StaticResource Num}" FontSize="11" Foreground="{StaticResource Dim}" />
-                    </DockPanel>
+                    <Grid Margin="0,6,0,0">
+                        <TextBlock Text="00:00" Style="{StaticResource Num}" FontSize="11" Foreground="{StaticResource Dim}" VerticalAlignment="Top" />
+                        <TextBlock x:Name="DurationLabel" Style="{StaticResource Num}" FontSize="11" Foreground="{StaticResource Dim}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Top" />
+                        <!-- クリップ：始まりと終わりを決めて保存する -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE8C6;" FontSize="12" Foreground="{StaticResource Dim}" Margin="0,0,6,0" />
+                            <Button Style="{StaticResource SmallButton}" Content="始まり" FontSize="12" Click="OnClipStart" ToolTip="今の位置をクリップの始まりにする (I)" />
+                            <TextBlock Text="{Binding ClipRangeText}" Style="{StaticResource Num}" FontSize="12" Foreground="{StaticResource Soft}"
+                                       MinWidth="150" TextAlignment="Center" VerticalAlignment="Center" Margin="6,0" />
+                            <Button Style="{StaticResource SmallButton}" Content="終わり" FontSize="12" Click="OnClipEnd" ToolTip="今の位置をクリップの終わりにする (O)" />
+                            <Button Style="{StaticResource SmallButton}" Content="クリップを保存" FontSize="12" Margin="10,0,0,0"
+                                    Foreground="{StaticResource Accent}" FontWeight="SemiBold" Command="{Binding SaveClipCommand}"
+                                    ToolTip="範囲を録画フォルダの clips に保存します。再エンコードしないので、始まりは直前のキーフレームからになります" />
+                            <Button Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding ClearClipCommand}" ToolTip="範囲を消す">
+                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="10" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 
@@ -479,10 +495,22 @@
                             </StackPanel>
                         </ToggleButton>
                     </WrapPanel>
-                    <TextBlock Text="クリックで 3 秒前から再生" Foreground="{StaticResource Dim}" FontSize="11" Margin="0,2,0,8" />
+                    <TextBlock Text="クリックで 3 秒前から再生・右クリックでクリップを保存" Foreground="{StaticResource Dim}" FontSize="11" Margin="0,2,0,8"
+                               TextWrapping="Wrap" />
                 </StackPanel>
 
-                <ListBox x:Name="EventList" ItemsSource="{Binding Events}" PreviewMouseLeftButtonUp="OnEventClick">
+                <ListBox x:Name="EventList" ItemsSource="{Binding Events}" PreviewMouseLeftButtonUp="OnEventClick"
+                         PreviewMouseRightButtonDown="OnListRightButtonDown">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="前後をクリップに保存（5 秒前〜3 秒後）" Command="{Binding SaveEventClipCommand}"
+                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                <MenuItem.Icon>
+                                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE8C6;" FontSize="13" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="vm:EventItemViewModel">
                             <Grid>
@@ -558,8 +586,8 @@
         </Border>
     </Grid>
 
-    <!-- 削除したあとの通知（タイムラインと操作にかからないよう、動画の下端に出す） -->
-    <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,150" Padding="16,6,8,6" CornerRadius="10"
+    <!-- 削除・クリップの保存の通知（タイムラインと操作にかからないよう、動画の下端に出す） -->
+    <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,162" Padding="16,6,8,6" CornerRadius="10"
             Background="{StaticResource Hover}" BorderBrush="{StaticResource RuleStrong}" BorderThickness="1">
         <Border.Style>
             <Style TargetType="Border">
@@ -575,9 +603,18 @@
         </Border.Effect>
         <StackPanel Orientation="Horizontal">
             <TextBlock Text="{Binding ToastText}" FontSize="13" VerticalAlignment="Center" Margin="0,4,8,4" />
-            <Button Content="元に戻す" Style="{StaticResource SmallButton}" Foreground="{StaticResource Accent}" FontWeight="SemiBold"
-                    BorderBrush="Transparent" Background="Transparent" Padding="8,0"
-                    Command="{Binding UndoDeleteCommand}" Visibility="{Binding CanUndoDelete, Converter={StaticResource BoolToVisibility}}" />
+            <Button Content="{Binding ToastActionText}" Command="{Binding ToastActionCommand}" Foreground="{StaticResource Accent}" FontWeight="SemiBold"
+                    BorderBrush="Transparent" Background="Transparent" Padding="8,0">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ToastActionText}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </StackPanel>
     </Border>
     </Grid>

@@ -4,11 +4,15 @@ using System.Text;
 namespace ValoCapture.Core.Recording;
 
 /// <summary>
-/// 断片化 MP4（録画中に異常終了してもそこまで再生できる形式）を、再エンコードせずに通常の MP4 に変換する。
+/// MP4 を再エンコードせずに書き直す。
+/// <list type="bullet">
+/// <item>断片化 MP4（録画中に異常終了してもそこまで再生できる形式）を通常の MP4 に変換する。
 /// 断片化 MP4 は Windows の再生エンジンで奥へのシークが遅く、シークが重なると違う場面が出たり先頭に戻ったりする
-/// （40 分の録画で 22 分あたりから先）。通常の MP4 なら全体の目次（moov）があるのですぐにシークできる。
+/// （40 分の録画で 22 分あたりから先）。通常の MP4 なら全体の目次（moov）があるのですぐにシークできる。</item>
+/// <item>一部の範囲をクリップとして切り出す。</item>
+/// </list>
 /// </summary>
-public static class Mp4Defragmenter
+public static class Mp4Remuxer
 {
     private const int CopyBufferSize = 4 * 1024 * 1024;
 
@@ -29,41 +33,29 @@ public static class Mp4Defragmenter
     /// <paramref name="sourcePath"/> の断片化 MP4 を通常の MP4 にして <paramref name="destinationPath"/> に書く。
     /// 末尾の断片が途中で切れている場合（異常終了した録画）は、完全な断片までを書く。
     /// </summary>
-    /// <exception cref="InvalidDataException">断片化 MP4 として読めない。</exception>
+    /// <exception cref="InvalidDataException">MP4 として読めない。</exception>
     public static void Defragment(string sourcePath, string destinationPath)
     {
         using var source = OpenRead(sourcePath);
-        var movie = ReadFragments(source);
-
-        using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, CopyBufferSize);
-        output.Write(movie.Ftyp);
-
-        // mdat はサイズが 4GB を超えるので 64 ビットのヘッダーにする
-        var payload = movie.Chunks.Sum(c => c.Length);
-        Span<byte> header = stackalloc byte[16];
-        BinaryPrimitives.WriteUInt32BigEndian(header, 1);
-        Encoding.ASCII.GetBytes("mdat", header[4..8]);
-        BinaryPrimitives.WriteUInt64BigEndian(header[8..], (ulong)(16 + payload));
-        output.Write(header);
-
-        var buffer = new byte[CopyBufferSize];
-        foreach (var chunk in movie.Chunks)
-        {
-            chunk.NewOffset = output.Position;
-            source.Position = chunk.SourceOffset;
-            for (var left = chunk.Length; left > 0;)
-            {
-                var read = source.Read(buffer, 0, (int)Math.Min(buffer.Length, left));
-                if (read == 0) throw new InvalidDataException("動画のデータが途中で切れています");
-                output.Write(buffer, 0, read);
-                left -= read;
-            }
-        }
-
-        output.Write(BuildMoov(movie));
+        Write(source, ReadMovie(source), destinationPath, keepEdits: true);
     }
 
-    // 再生中でも読めるようにする。削除は許さない（変換中に容量制限やごみ箱への移動で消されないように）
+    /// <summary>
+    /// <paramref name="start"/> から <paramref name="end"/> までを切り出して <paramref name="destinationPath"/> に書く。
+    /// 再エンコードしないので、始まりは <paramref name="start"/> 以前で最も近いキーフレームになる。
+    /// 断片化 MP4（録画中のものも）と通常の MP4 のどちらからでも切り出せる。
+    /// </summary>
+    /// <returns>実際に切り出した範囲（元の動画での時刻）。</returns>
+    /// <exception cref="InvalidDataException">MP4 として読めない、または範囲に映像がない。</exception>
+    public static (TimeSpan Start, TimeSpan End) Clip(string sourcePath, string destinationPath, TimeSpan start, TimeSpan end)
+    {
+        using var source = OpenRead(sourcePath);
+        var (clip, range) = Select(ReadMovie(source), start, end);
+        Write(source, clip, destinationPath, keepEdits: false);
+        return range;
+    }
+
+    // 再生中・録画中でも読めるようにする。削除は許さない（変換中に容量制限やごみ箱への移動で消されないように）
     private static FileStream OpenRead(string path) =>
         new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 64 * 1024);
 
@@ -74,7 +66,7 @@ public static class Mp4Defragmenter
         public byte[] Ftyp = [];
         public byte[] Moov = [];
         public Dictionary<uint, Track> Tracks = [];
-        /// <summary>サンプルのデータの塊（trun ごと）。ファイル内の順。</summary>
+        /// <summary>サンプルのデータの塊。ファイル内の順。</summary>
         public List<Chunk> Chunks = [];
     }
 
@@ -82,13 +74,16 @@ public static class Mp4Defragmenter
     {
         public required uint Id;
         public required uint Timescale;
+        /// <summary>hdlr の種類（映像は vide、音声は soun）。</summary>
+        public required string Handler;
         public uint DefaultDuration, DefaultSize, DefaultFlags;
         public List<Sample> Samples = [];
         public List<Chunk> Chunks = [];
         public ulong Duration => Samples.Aggregate(0UL, (sum, s) => sum + s.Duration);
     }
 
-    private readonly record struct Sample(uint Size, uint Duration, bool IsSync, int CompositionOffset);
+    /// <param name="Offset">元のファイルでのデータの位置。</param>
+    private readonly record struct Sample(uint Size, uint Duration, bool IsSync, int CompositionOffset, long Offset);
 
     private sealed class Chunk
     {
@@ -98,7 +93,7 @@ public static class Mp4Defragmenter
         public long NewOffset;
     }
 
-    private static Movie ReadFragments(FileStream file)
+    private static Movie ReadMovie(FileStream file)
     {
         var movie = new Movie();
         foreach (var box in TopLevelBoxes(file))
@@ -114,28 +109,42 @@ public static class Mp4Defragmenter
                     break;
                 case "moof":
                     if (movie.Tracks.Count == 0) throw new InvalidDataException("moov より前に moof があります");
-                    if (!ReadMoof(movie, ReadRange(file, box.Start, box.End), box.Start, file.Length)) return movie;
+                    if (!ReadMoof(movie, ReadRange(file, box.Start, box.End), box.Start, file.Length)) return SortChunks(movie);
                     break;
             }
         }
         if (movie.Ftyp.Length == 0 || movie.Tracks.Count == 0) throw new InvalidDataException("MP4 として読めません");
+        return SortChunks(movie);
+    }
+
+    private static Movie SortChunks(Movie movie)
+    {
+        movie.Chunks.Sort((a, b) => a.SourceOffset.CompareTo(b.SourceOffset));
         return movie;
     }
 
+    /// <summary>トラックを読む。断片化 MP4 なら mvex の既定値を、通常の MP4 ならサンプルの表を読む。</summary>
     private static void ReadTracks(Movie movie)
     {
         var moov = movie.Moov;
+        var mvex = Children(moov, 8, moov.Length).FirstOrDefault(b => b.Type == "mvex");
         foreach (var trak in Children(moov, 8, moov.Length).Where(b => b.Type == "trak"))
         {
             var tkhd = Find(moov, trak, "tkhd");
-            var mdhd = Find(moov, Find(moov, trak, "mdia"), "mdhd");
-            var id = BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(tkhd.DataStart + (moov[tkhd.DataStart] == 1 ? 20 : 12)));
-            var timescale = BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(mdhd.DataStart + (moov[mdhd.DataStart] == 1 ? 20 : 12)));
-            movie.Tracks[id] = new Track { Id = id, Timescale = timescale };
+            var mdia = Find(moov, trak, "mdia");
+            var mdhd = Find(moov, mdia, "mdhd");
+            var hdlr = Find(moov, mdia, "hdlr");
+            var track = new Track
+            {
+                Id = BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(tkhd.DataStart + (moov[tkhd.DataStart] == 1 ? 20 : 12))),
+                Timescale = BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(mdhd.DataStart + (moov[mdhd.DataStart] == 1 ? 20 : 12))),
+                Handler = Encoding.ASCII.GetString(moov, hdlr.DataStart + 8, 4),
+            };
+            movie.Tracks[track.Id] = track;
+            if (mvex.Type is null) ReadSampleTables(movie, track, Find(moov, Find(moov, mdia, "minf"), "stbl"));
         }
 
-        var mvex = Children(moov, 8, moov.Length).FirstOrDefault(b => b.Type == "mvex");
-        if (mvex.Type is null) throw new InvalidDataException("断片化 MP4 ではありません");
+        if (mvex.Type is null) return;
         foreach (var trex in Children(moov, mvex.DataStart, mvex.End).Where(b => b.Type == "trex"))
         {
             var d = moov.AsSpan(trex.DataStart);
@@ -143,6 +152,84 @@ public static class Mp4Defragmenter
             track.DefaultDuration = BinaryPrimitives.ReadUInt32BigEndian(d[12..]);
             track.DefaultSize = BinaryPrimitives.ReadUInt32BigEndian(d[16..]);
             track.DefaultFlags = BinaryPrimitives.ReadUInt32BigEndian(d[20..]);
+        }
+    }
+
+    /// <summary>通常の MP4 の stbl（stts / ctts / stss / stsz / stsc / stco・co64）からサンプルと塊を読む。</summary>
+    private static void ReadSampleTables(Movie movie, Track track, BoxRef stbl)
+    {
+        var moov = movie.Moov;
+        BoxRef? Optional(string type)
+        {
+            var box = Children(moov, stbl.DataStart, stbl.End).FirstOrDefault(b => b.Type == type);
+            return box.Type is null ? null : box;
+        }
+        uint U32(int pos) => BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(pos));
+        // 表の先頭の位置と項目数（version・flags と、項目数の前にある skip バイトの後）
+        (int Pos, int Count) Table(BoxRef box, int skip = 0) => (box.DataStart + 8 + skip, (int)U32(box.DataStart + 4 + skip));
+
+        var stsz = Find(moov, stbl, "stsz");
+        var constantSize = U32(stsz.DataStart + 4);
+        var (sizePos, sampleCount) = Table(stsz, 4);
+
+        var durations = new uint[sampleCount];
+        var (p, n) = Table(Find(moov, stbl, "stts"));
+        for (int e = 0, i = 0; e < n; e++, p += 8)
+            for (var k = U32(p); k > 0 && i < sampleCount; k--) durations[i++] = U32(p + 4);
+
+        var compositionOffsets = new int[sampleCount];
+        if (Optional("ctts") is { } ctts)
+        {
+            (p, n) = Table(ctts);
+            for (int e = 0, i = 0; e < n; e++, p += 8)
+                for (var k = U32(p); k > 0 && i < sampleCount; k--) compositionOffsets[i++] = (int)U32(p + 4);
+        }
+
+        // stss がなければすべてキーフレーム
+        bool[]? sync = null;
+        if (Optional("stss") is { } stss)
+        {
+            sync = new bool[sampleCount];
+            (p, n) = Table(stss);
+            for (var e = 0; e < n; e++, p += 4)
+                if (U32(p) is var number && number >= 1 && number <= sampleCount) sync[number - 1] = true;
+        }
+
+        long[] chunkOffsets;
+        if (Optional("co64") is { } co64)
+        {
+            (p, n) = Table(co64);
+            chunkOffsets = Enumerable.Range(0, n).Select(i => (long)BinaryPrimitives.ReadUInt64BigEndian(moov.AsSpan(p + i * 8))).ToArray();
+        }
+        else
+        {
+            (p, n) = Table(Find(moov, stbl, "stco"));
+            chunkOffsets = Enumerable.Range(0, n).Select(i => (long)U32(p + i * 4)).ToArray();
+        }
+
+        // stsc は (最初の塊の番号, 塊ごとのサンプル数, …) の並び。次の項目の塊の手前まで同じ数が続く
+        var (stscPos, stscCount) = Table(Find(moov, stbl, "stsc"));
+        var sample = 0;
+        for (var e = 0; e < stscCount && sample < sampleCount; e++)
+        {
+            var firstChunk = (int)U32(stscPos + e * 12) - 1;
+            var endChunk = e + 1 < stscCount ? (int)U32(stscPos + (e + 1) * 12) - 1 : chunkOffsets.Length;
+            var perChunk = (int)U32(stscPos + e * 12 + 4);
+            for (var c = Math.Max(firstChunk, 0); c < Math.Min(endChunk, chunkOffsets.Length) && sample < sampleCount; c++)
+            {
+                var offset = chunkOffsets[c];
+                var chunk = new Chunk { SourceOffset = offset, Length = 0, SampleCount = 0 };
+                for (var k = 0; k < perChunk && sample < sampleCount; k++, sample++)
+                {
+                    var size = constantSize != 0 ? constantSize : U32(sizePos + sample * 4);
+                    track.Samples.Add(new Sample(size, durations[sample], sync?[sample] ?? true, compositionOffsets[sample], offset));
+                    offset += size;
+                    chunk.Length += size;
+                    chunk.SampleCount++;
+                }
+                track.Chunks.Add(chunk);
+                movie.Chunks.Add(chunk);
+            }
         }
     }
 
@@ -194,7 +281,7 @@ public static class Mp4Defragmenter
                         if ((boxFlags & 0x400) != 0) { sFlags = BinaryPrimitives.ReadUInt32BigEndian(d[p..]); p += 4; }
                         if ((boxFlags & 0x800) != 0) { cto = BinaryPrimitives.ReadInt32BigEndian(d[p..]); p += 4; }
                         // sample_is_non_sync_sample
-                        samples.Add(new Sample(sSize, sDuration, (sFlags & 0x10000) == 0, cto));
+                        samples.Add(new Sample(sSize, sDuration, (sFlags & 0x10000) == 0, cto, offset + length));
                         length += sSize;
                     }
 
@@ -214,9 +301,107 @@ public static class Mp4Defragmenter
         return true;
     }
 
+    // ---- 切り出し ----
+
+    /// <summary>
+    /// 範囲のサンプルだけを持つ <see cref="Movie"/> を作る。映像は <paramref name="start"/> 以前で最も近いキーフレームから
+    /// <paramref name="end"/> の手前まで、ほかのトラック（音声）は映像と同じ時刻の範囲にする。
+    /// </summary>
+    private static (Movie Clip, (TimeSpan Start, TimeSpan End) Range) Select(Movie movie, TimeSpan start, TimeSpan end)
+    {
+        var video = movie.Tracks.Values.FirstOrDefault(t => t.Handler == "vide" && t.Samples.Count > 0)
+            ?? throw new InvalidDataException("映像のトラックがありません");
+
+        var (startTicks, endTicks) = (ToTicks(video, start), ToTicks(video, end));
+        if (endTicks <= startTicks || startTicks >= video.Duration) throw new InvalidDataException("切り出す範囲に映像がありません");
+        ulong time = 0, firstTime = 0, lastEnd = 0;
+        int first = 0, last = -1;
+        for (var i = 0; i < video.Samples.Count && time < endTicks; time += video.Samples[i].Duration, i++)
+        {
+            if (video.Samples[i].IsSync && time <= startTicks) (first, firstTime) = (i, time);
+            (last, lastEnd) = (i, time + video.Samples[i].Duration);
+        }
+        if (last < first) throw new InvalidDataException("切り出す範囲に映像がありません");
+        var (clipStart, clipEnd) = (FromTicks(video, firstTime), FromTicks(video, lastEnd));
+
+        var clip = new Movie { Ftyp = movie.Ftyp, Moov = movie.Moov };
+        foreach (var track in movie.Tracks.Values)
+        {
+            var selected = new Track { Id = track.Id, Timescale = track.Timescale, Handler = track.Handler };
+            if (track == video)
+            {
+                selected.Samples.AddRange(video.Samples.GetRange(first, last - first + 1));
+            }
+            else
+            {
+                var (from, to) = (ToTicks(track, clipStart), ToTicks(track, clipEnd));
+                time = 0;
+                foreach (var s in track.Samples)
+                {
+                    if (time >= to) break;
+                    if (time >= from) selected.Samples.Add(s);
+                    time += s.Duration;
+                }
+            }
+
+            // 元のファイルで続いているサンプルを 1 つの塊にする
+            Chunk? chunk = null;
+            foreach (var s in selected.Samples)
+            {
+                if (chunk is null || chunk.SourceOffset + chunk.Length != s.Offset)
+                {
+                    chunk = new Chunk { SourceOffset = s.Offset, Length = 0, SampleCount = 0 };
+                    selected.Chunks.Add(chunk);
+                    clip.Chunks.Add(chunk);
+                }
+                chunk.Length += s.Size;
+                chunk.SampleCount++;
+            }
+            clip.Tracks[track.Id] = selected;
+        }
+        return (SortChunks(clip), (clipStart, clipEnd));
+    }
+
+    private static ulong ToTicks(Track track, TimeSpan t) =>
+        t <= TimeSpan.Zero ? 0 : (ulong)Math.Round(t.TotalSeconds * track.Timescale);
+
+    private static TimeSpan FromTicks(Track track, ulong ticks) =>
+        track.Timescale == 0 ? TimeSpan.Zero : TimeSpan.FromSeconds((double)ticks / track.Timescale);
+
     // ---- 書き出し ----
 
-    private static byte[] BuildMoov(Movie movie)
+    /// <param name="keepEdits">編集リスト（edts）を残すか。切り出したものでは元の動画の先頭に合わせた値になるので捨てる。</param>
+    private static void Write(FileStream source, Movie movie, string destinationPath, bool keepEdits)
+    {
+        using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, CopyBufferSize);
+        output.Write(movie.Ftyp);
+
+        // mdat はサイズが 4GB を超えるので 64 ビットのヘッダーにする
+        var payload = movie.Chunks.Sum(c => c.Length);
+        Span<byte> header = stackalloc byte[16];
+        BinaryPrimitives.WriteUInt32BigEndian(header, 1);
+        Encoding.ASCII.GetBytes("mdat", header[4..8]);
+        BinaryPrimitives.WriteUInt64BigEndian(header[8..], (ulong)(16 + payload));
+        output.Write(header);
+
+        var buffer = new byte[CopyBufferSize];
+        foreach (var chunk in movie.Chunks)
+        {
+            chunk.NewOffset = output.Position;
+            source.Position = chunk.SourceOffset;
+            for (var left = chunk.Length; left > 0;)
+            {
+                var read = source.Read(buffer, 0, (int)Math.Min(buffer.Length, left));
+                if (read == 0) throw new InvalidDataException("動画のデータが途中で切れています");
+                output.Write(buffer, 0, read);
+                left -= read;
+            }
+        }
+
+        output.Write(BuildMoov(movie, keepEdits));
+    }
+
+    private static byte[] BuildMoov(Movie movie, bool keepEdits)
     {
         var moov = movie.Moov;
         var mvhd = Find(moov, new BoxRef("moov", 0, 8, moov.Length), "mvhd");
@@ -236,7 +421,7 @@ public static class Mp4Defragmenter
                 case "trak":
                     var tkhd = Find(moov, child, "tkhd");
                     var track = movie.Tracks[BinaryPrimitives.ReadUInt32BigEndian(moov.AsSpan(tkhd.DataStart + (moov[tkhd.DataStart] == 1 ? 20 : 12)))];
-                    WriteTrak(w, moov, child, track, MovieDuration(track));
+                    WriteTrak(w, moov, child, track, MovieDuration(track), keepEdits);
                     break;
                 default:
                     w.Write(moov.AsSpan(child.Start, child.End - child.Start));
@@ -248,7 +433,7 @@ public static class Mp4Defragmenter
     }
 
     /// <param name="duration">トラックの長さ（ムービーのタイムスケール）。</param>
-    private static void WriteTrak(BoxWriter w, byte[] moov, BoxRef trak, Track track, ulong duration)
+    private static void WriteTrak(BoxWriter w, byte[] moov, BoxRef trak, Track track, ulong duration, bool keepEdits)
     {
         var mediaDuration = track.Duration;
         var trakPos = w.Begin("trak");
@@ -256,7 +441,7 @@ public static class Mp4Defragmenter
         {
             if (child.Type == "tkhd") w.Write(WithDuration(moov, child, duration, v1Offset: 28, v0Offset: 20));
             else if (child.Type == "mdia") WriteMdia(w, moov, child, track, mediaDuration);
-            else w.Write(moov.AsSpan(child.Start, child.End - child.Start));
+            else if (child.Type != "edts" || keepEdits) w.Write(moov.AsSpan(child.Start, child.End - child.Start));
         }
         w.End(trakPos);
     }

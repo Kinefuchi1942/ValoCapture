@@ -4,11 +4,11 @@ using ValoCapture.Core.Recording;
 
 namespace ValoCapture.Core.Tests;
 
-public sealed class Mp4DefragmenterTests : IDisposable
+public sealed class Mp4RemuxerTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "ValoCaptureTests", Guid.NewGuid().ToString("N"));
 
-    public Mp4DefragmenterTests() => Directory.CreateDirectory(_dir);
+    public Mp4RemuxerTests() => Directory.CreateDirectory(_dir);
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
@@ -86,7 +86,7 @@ public sealed class Mp4DefragmenterTests : IDisposable
     private string Convert(string source)
     {
         var dest = Path.Combine(_dir, "out.mp4");
-        Mp4Defragmenter.Defragment(source, dest);
+        Mp4Remuxer.Defragment(source, dest);
         return dest;
     }
 
@@ -211,7 +211,67 @@ public sealed class Mp4DefragmenterTests : IDisposable
     {
         var source = WriteFragmented(Ftyp, Moov(), Fragment(1, 0, [(10, 1000, true)]));
 
-        Assert.True(Mp4Defragmenter.IsFragmented(source));
-        Assert.False(Mp4Defragmenter.IsFragmented(Convert(source)));
+        Assert.True(Mp4Remuxer.IsFragmented(source));
+        Assert.False(Mp4Remuxer.IsFragmented(Convert(source)));
+    }
+
+    // 映像 6 サンプル（1/60 秒ずつ、キーフレームは 0 と 3）、音声 6 サンプル（1024/48000 秒ずつ）
+    private string WriteClipSource() => WriteFragmented(
+        Ftyp, Moov(),
+        Fragment(1, 0, [(10, 1000, true), (5, 1000, false), (7, 1000, false)]),
+        Fragment(2, 0, [(3, null, true), (4, null, true), (2, null, true)]),
+        Fragment(1, 3, [(6, 1000, true), (8, 1000, false), (9, 1000, false)]),
+        Fragment(2, 3, [(5, null, true), (6, null, true), (7, null, true)]));
+
+    [Fact]
+    public void Clip_StartsAtPreviousKeyframeAndKeepsAudioInRange()
+    {
+        var dest = Path.Combine(_dir, "clip.mp4");
+
+        // 4/60 秒から 5.5/60 秒 → 映像は直前のキーフレーム（3 番、3/60 秒）から 5 番まで
+        var (start, end) = Mp4Remuxer.Clip(WriteClipSource(), dest, TimeSpan.FromSeconds(4 / 60.0), TimeSpan.FromSeconds(5.5 / 60));
+
+        Assert.Equal(3 / 60.0, start.TotalSeconds, 6);
+        Assert.Equal(6 / 60.0, end.TotalSeconds, 6);
+        var d = File.ReadAllBytes(dest);
+        Assert.Equal(["ftyp", "mdat", "moov"], Children(d, 0, d.Length).Select(b => b.Type));
+
+        Assert.Equal([6u, 8u, 9u], Table(d, InTrack(d, 0, "mdia", "minf", "stbl", "stsz"), 4, 4));
+        Assert.Equal([1u], Table(d, InTrack(d, 0, "mdia", "minf", "stbl", "stss"), 0, 4));
+        Assert.Equal(3000u, ReadU32(d, InTrack(d, 0, "mdia", "mdhd").Item3 + 16));
+
+        // 音声は 0.05 秒〜0.1 秒に始まるサンプル（3072/48000 と 4096/48000）
+        Assert.Equal([5u, 6u], Table(d, InTrack(d, 1, "mdia", "minf", "stbl", "stsz"), 4, 4));
+
+        var video = InTrack(d, 0, "mdia", "minf", "stbl", "co64");
+        Assert.Equal((byte)(16 + 3), d[(long)BinaryPrimitives.ReadUInt64BigEndian(d.AsSpan(video.Item3 + 8))]);
+        var audio = InTrack(d, 1, "mdia", "minf", "stbl", "co64");
+        Assert.Equal((byte)(32 + 3), d[(long)BinaryPrimitives.ReadUInt64BigEndian(d.AsSpan(audio.Item3 + 8))]);
+        // 映像・音声の塊だけを持ち、mdat に余分なデータを入れない
+        var mdat = Children(d, 0, d.Length).Single(b => b.Type == "mdat");
+        Assert.Equal(6 + 8 + 9 + 5 + 6, mdat.End - mdat.DataStart);
+    }
+
+    [Fact]
+    public void Clip_FromConvertedMp4MatchesClipFromFragmented()
+    {
+        var source = WriteClipSource();
+        var fromFragmented = Path.Combine(_dir, "a.mp4");
+        var fromConverted = Path.Combine(_dir, "b.mp4");
+        var range = (TimeSpan.FromSeconds(1 / 60.0), TimeSpan.FromSeconds(4.5 / 60));
+
+        var a = Mp4Remuxer.Clip(source, fromFragmented, range.Item1, range.Item2);
+        var b = Mp4Remuxer.Clip(Convert(source), fromConverted, range.Item1, range.Item2);
+
+        Assert.Equal(a, b);
+        Assert.Equal(TimeSpan.Zero, a.Start);
+        Assert.Equal(File.ReadAllBytes(fromFragmented), File.ReadAllBytes(fromConverted));
+    }
+
+    [Fact]
+    public void Clip_ThrowsWhenRangeIsOutsideVideo()
+    {
+        Assert.Throws<InvalidDataException>(() =>
+            Mp4Remuxer.Clip(WriteClipSource(), Path.Combine(_dir, "clip.mp4"), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10)));
     }
 }

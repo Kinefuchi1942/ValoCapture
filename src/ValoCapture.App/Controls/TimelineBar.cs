@@ -27,7 +27,19 @@ public sealed class TimelineBar : FrameworkElement
         nameof(Position), typeof(TimeSpan), typeof(TimelineBar),
         new FrameworkPropertyMetadata(TimeSpan.Zero, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty ClipStartProperty = DependencyProperty.Register(
+        nameof(ClipStart), typeof(TimeSpan?), typeof(TimelineBar),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty ClipEndProperty = DependencyProperty.Register(
+        nameof(ClipEnd), typeof(TimeSpan?), typeof(TimelineBar),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public IEnumerable? Markers { get => (IEnumerable?)GetValue(MarkersProperty); set => SetValue(MarkersProperty, value); }
+
+    /// <summary>クリップの範囲。片方だけ決まっていればその位置に印だけを描く。</summary>
+    public TimeSpan? ClipStart { get => (TimeSpan?)GetValue(ClipStartProperty); set => SetValue(ClipStartProperty, value); }
+    public TimeSpan? ClipEnd { get => (TimeSpan?)GetValue(ClipEndProperty); set => SetValue(ClipEndProperty, value); }
     public TimeSpan Duration { get => (TimeSpan)GetValue(DurationProperty); set => SetValue(DurationProperty, value); }
     public TimeSpan Position { get => (TimeSpan)GetValue(PositionProperty); set => SetValue(PositionProperty, value); }
 
@@ -72,6 +84,7 @@ public sealed class TimelineBar : FrameworkElement
 
         var px = X(Position, w);
         dc.DrawRoundedRectangle(Palette.Played, null, new Rect(0, barTop, px, BarHeight), 4, 4);
+        DrawClip(dc, w, h);
 
         foreach (var m in Items())
         {
@@ -90,6 +103,25 @@ public sealed class TimelineBar : FrameworkElement
         dc.DrawEllipse(Palette.Text, null, new Point(px, -4), 6, 6);
 
         if (_hovered is not null) DrawTooltip(dc, _hovered, w);
+    }
+
+    // クリップの範囲：薄い帯と、両端の括弧の形の印
+    private void DrawClip(DrawingContext dc, double w, double h)
+    {
+        double? start = ClipStart is { } s ? X(s, w) : null;
+        double? end = ClipEnd is { } e ? X(e, w) : null;
+        if (start is { } a && end is { } b) dc.DrawRectangle(Palette.ClipFill, null, new Rect(a, 0, Math.Max(0, b - a), h));
+        if (start is { } x0) DrawBracket(dc, x0, h, 1);
+        if (end is { } x1) DrawBracket(dc, x1, h, -1);
+    }
+
+    /// <param name="direction">開き側。始まりは右（1）、終わりは左（-1）。</param>
+    private static void DrawBracket(DrawingContext dc, double x, double h, int direction)
+    {
+        dc.DrawRectangle(Palette.Accent, null, new Rect(x - 1, 0, 2, h));
+        var arm = direction > 0 ? new Rect(x - 1, 0, 6, 2) : new Rect(x - 5, 0, 6, 2);
+        dc.DrawRectangle(Palette.Accent, null, arm);
+        dc.DrawRectangle(Palette.Accent, null, arm with { Y = h - 2 });
     }
 
     private void DrawTooltip(DrawingContext dc, EventItemViewModel m, double width)

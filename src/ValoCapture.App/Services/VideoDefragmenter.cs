@@ -7,7 +7,7 @@ namespace ValoCapture.App.Services;
 
 /// <summary>
 /// 録画（断片化 MP4）を通常の MP4 に変換して置き換える。断片化 MP4 のままだと奥へのシークで違う場面が出る
-/// （<see cref="Mp4Defragmenter"/>）。1 本ずつ順にバックグラウンドで変換し、変換中も元の動画は再生できる。
+/// （<see cref="Mp4Remuxer"/>）。1 本ずつ順にバックグラウンドで変換し、変換中も元の動画は再生できる。
 /// </summary>
 public sealed class VideoDefragmenter
 {
@@ -65,7 +65,7 @@ public sealed class VideoDefragmenter
         var video = session.VideoPath;
         var temp = Path.Combine(session.Directory, TempFile);
         if (File.Exists(temp)) File.Delete(temp);
-        if (!File.Exists(video) || !Mp4Defragmenter.IsFragmented(video)) return;
+        if (!File.Exists(video) || !Mp4Remuxer.IsFragmented(video)) return;
 
         var size = new FileInfo(video).Length;
         if (new DriveInfo(Path.GetPathRoot(Path.GetFullPath(video))!).AvailableFreeSpace < size + ReservedBytes)
@@ -77,7 +77,7 @@ public sealed class VideoDefragmenter
         var watch = Stopwatch.StartNew();
         try
         {
-            Mp4Defragmenter.Defragment(video, temp);
+            Mp4Remuxer.Defragment(video, temp);
             await _replaceVideo(session.Directory, () => ReplaceAsync(temp, video));
         }
         catch
