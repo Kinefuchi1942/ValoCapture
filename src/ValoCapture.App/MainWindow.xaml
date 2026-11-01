@@ -51,6 +51,36 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
+        <!-- イベント一覧の行。再生中のイベントは左にバーを出す（クリックで選んだ行の枠とは別） -->
+        <Style x:Key="EventItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ItemStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Margin="0,0,0,1">
+                            <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                                    Padding="10,6" CornerRadius="8">
+                                <ContentPresenter />
+                            </Border>
+                            <Border x:Name="PlayingBar" Width="3" HorizontalAlignment="Left" Margin="0,5" CornerRadius="1.5"
+                                    Background="{StaticResource Accent}" Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Hover}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Hover}" />
+                                <Setter TargetName="PlayingBar" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentLine}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <SolidColorBrush x:Key="DangerSoft" Color="#1AFF5D5D" />
         <SolidColorBrush x:Key="DangerLine" Color="#73FF5D5D" />
         <!-- 見出しのごみ箱。ふだんは目立たせず、乗せると赤くする -->
@@ -500,7 +530,7 @@
                 </StackPanel>
 
                 <ListBox x:Name="EventList" ItemsSource="{Binding Events}" PreviewMouseLeftButtonUp="OnEventClick"
-                         PreviewMouseRightButtonDown="OnListRightButtonDown">
+                         PreviewMouseRightButtonDown="OnListRightButtonDown" ItemContainerStyle="{StaticResource EventItemStyle}">
                     <ListBox.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="前後をクリップに保存（5 秒前〜3 秒後）" Command="{Binding SaveEventClipCommand}"
@@ -520,8 +550,38 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
+                                <!-- 過ぎたイベントは薄くする -->
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPast}" Value="True">
+                                                <Setter Property="Opacity" Value="0.5" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
                                 <Ellipse Width="8" Height="8" HorizontalAlignment="Left" Fill="{Binding Type, Converter={StaticResource EventBrush}}" />
-                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Style="{StaticResource Num}" Foreground="{StaticResource Soft}" />
+                                <TextBlock Grid.Column="1" Text="{Binding TimeText}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Num}">
+                                            <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <!-- 再生中のイベントから次のイベントまでの進み。行の下の余白に重ねて、行の高さを変えない -->
+                                <Border Grid.Column="1" Grid.ColumnSpan="3" Height="2" VerticalAlignment="Bottom" Margin="0,0,0,-4" CornerRadius="1"
+                                        Background="{StaticResource Rule}" Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}">
+                                    <Border Background="{StaticResource Accent}" CornerRadius="1" RenderTransformOrigin="0,0.5">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform ScaleX="{Binding Progress}" />
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </Border>
                                 <TextBlock Grid.Column="2" Text="{Binding Label}" />
                                 <TextBlock Grid.Column="3" Text="{Binding Note}" FontSize="11" VerticalAlignment="Center">
                                     <TextBlock.Style>

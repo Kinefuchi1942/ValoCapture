@@ -351,6 +351,33 @@ public sealed partial class MainViewModel : ObservableObject
     public EventItemViewModel? PreviousEvent(TimeSpan position) =>
         Events.LastOrDefault(e => e.VideoTime - PreRoll < position - TimeSpan.FromSeconds(1));
 
+    /// <summary>
+    /// 再生位置に合わせて、再生中のイベント（直前に起きたもの）・過ぎたイベント・次までの進みを更新する。
+    /// 再生中のイベントが変わったら true（一覧をそこまでスクロールする）。
+    /// </summary>
+    public bool UpdatePlayback(TimeSpan position, TimeSpan duration)
+    {
+        EventItemViewModel? playing = null;
+        for (var i = 0; i < Events.Count; i++)
+        {
+            var e = Events[i];
+            var next = i + 1 < Events.Count ? Events[i + 1].VideoTime : duration;
+            var isCurrent = e.VideoTime <= position && (i + 1 == Events.Count || next > position);
+            e.IsCurrent = isCurrent;
+            e.IsPast = e.VideoTime <= position && !isCurrent;
+            e.Progress = !isCurrent ? 0
+                : next > e.VideoTime ? Math.Clamp((position - e.VideoTime) / (next - e.VideoTime), 0, 1)
+                : 1;
+            if (isCurrent) playing = e;
+        }
+
+        var changed = playing != _playingEvent;
+        _playingEvent = playing;
+        return changed;
+    }
+
+    private EventItemViewModel? _playingEvent;
+
     private void RefreshEvents()
     {
         Events.Clear();

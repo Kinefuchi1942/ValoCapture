@@ -150,6 +150,16 @@ public partial class MainWindow : Window
     {
         Timeline.Position = pos;
         PositionRun.Text = pos.ToString(@"mm\:ss");
+        ShowPlayingEvent(pos);
+    }
+
+    /// <summary>イベント一覧で再生中のイベントを示し、変わったらそこまでスクロールする。</summary>
+    private void ShowPlayingEvent(TimeSpan pos)
+    {
+        // 一覧にマウスを乗せている間は、スクロールして読んでいる位置を動かさない
+        if (_vm.UpdatePlayback(pos, _duration) && !EventList.IsMouseOver &&
+            _vm.Events.FirstOrDefault(e => e.IsCurrent) is { } playing)
+            EventList.ScrollIntoView(playing);
     }
 
     private void Seek(TimeSpan t)
@@ -176,6 +186,7 @@ public partial class MainWindow : Window
         }
 
         PositionRun.Text = t.ToString(@"mm\:ss");
+        ShowPlayingEvent(t);
         _pendingScrub = t;
         // 前のシークから間隔が空いていればすぐ出し、そうでなければタイマーで最新の位置だけ出す
         if (!_scrubTimer.IsEnabled)
