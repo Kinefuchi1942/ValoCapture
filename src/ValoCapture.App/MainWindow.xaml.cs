@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm;
     private readonly DispatcherTimer _positionTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private bool _isPlaying;
+    private bool _playedSinceOpen;
     private TimeSpan _duration;
 
     // シークバーのドラッグ中。シークは溜まると最後の位置の表示が遅れるので、間隔を空けて最新の位置だけ出す
@@ -74,6 +75,7 @@ public partial class MainWindow : Window
         }
 
         PlayerMessage.Text = "";
+        _playedSinceOpen = false;
         Player.Source = new Uri(session.VideoPath);
         // 先頭フレームを表示するため一度再生して止める
         Player.Play();
@@ -219,7 +221,14 @@ public partial class MainWindow : Window
     private void Play()
     {
         if (Player.Source is null) return;
+        // 開いた直後の最初の再生は、それまでのシークを無視して先頭から始まるので、位置を設定し直す
+        var position = Player.Position;
         Player.Play();
+        if (!_playedSinceOpen)
+        {
+            _playedSinceOpen = true;
+            Player.Position = position;
+        }
         _isPlaying = true;
         PlayGlyph.Text = PauseGlyphText;
     }
