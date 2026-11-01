@@ -36,6 +36,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>設定画面を開いてほしいとき（App が開く）。</summary>
     public event Action? SettingsRequested;
 
+    /// <summary>ダウンロード済みの新しい版に更新して再起動してほしいとき（App が行う）。</summary>
+    public event Action? ApplyUpdateRequested;
+
     /// <summary>試合をごみ箱へ移したとき（失敗したときは例外付き）。</summary>
     public event Action<MatchSession, Exception?>? SessionDeleted;
 
@@ -68,6 +71,15 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _statusTime = "";
     [ObservableProperty] private string _statusDetail = "";
     [ObservableProperty] private bool _isRecording;
+
+    // 更新（状態のカードの下に出す）
+    /// <summary>ダウンロード済みで適用できる新しい版。空ならカードを出さない。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUpdate), nameof(UpdateDetail))]
+    private string _updateVersion = "";
+
+    public bool HasUpdate => UpdateVersion.Length > 0;
+    public string UpdateDetail => $"{UpdateVersion} に更新できます（今は {App.AppVersion}）";
 
     // 削除
     /// <summary>削除を確認している試合（確認ダイアログを出す）。</summary>
@@ -342,6 +354,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void OpenSettings() => SettingsRequested?.Invoke();
+
+    [RelayCommand]
+    private void ApplyUpdate() => ApplyUpdateRequested?.Invoke();
 
     /// <summary>現在位置より後の最初のイベント（なければ null）。</summary>
     public EventItemViewModel? NextEvent(TimeSpan position) =>

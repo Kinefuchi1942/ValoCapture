@@ -62,6 +62,7 @@ public partial class App : Application
         _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume);
         _vm.PropertyChanged += OnViewModelPropertyChanged;
         _vm.SettingsRequested += OpenSettings;
+        _vm.ApplyUpdateRequested += () => _ = ApplyUpdateAsync();
         _vm.SessionDeleted += (s, ex) => WriteLog(ex is null ? $"ごみ箱へ移動: {s.Directory}" : $"ごみ箱へ移動できません: {s.Directory} {ex.Message}");
         _vm.ClipSaved += (path, ex) => WriteLog(ex is null ? $"クリップを保存: {path}" : $"クリップを保存できません: {path} {ex.Message}");
         _volumeSaveTimer.Tick += (_, _) => { _volumeSaveTimer.Stop(); _settings.Save(); };
@@ -148,9 +149,10 @@ public partial class App : Application
                 _readyUpdate = update;
                 WriteLog($"新しいバージョンをダウンロード: {version}");
                 _tray!.ShowUpdate(version);
-                _tray.Notify($"バージョン {version} に更新できます", "タスクトレイのメニューの「更新して再起動」から更新できます");
+                _vm!.UpdateVersion = version;
+                _tray.Notify($"バージョン {version} に更新できます", "画面左の「更新して再起動」かタスクトレイのメニューから更新できます");
             }
-            return $"バージョン {version} をダウンロードしました。タスクトレイのメニューの「更新して再起動」から更新できます";
+            return $"バージョン {version} をダウンロードしました。画面左の「更新して再起動」かタスクトレイのメニューから更新できます";
         }
         catch (Exception ex)
         {

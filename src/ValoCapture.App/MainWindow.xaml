@@ -233,6 +233,21 @@
                 </StackPanel>
             </Border>
 
+            <!-- 新しい版をダウンロードし終えたら、更新するまで出しておく -->
+            <Border DockPanel.Dock="Top" Margin="0,10,0,0" Padding="14,12" CornerRadius="10" BorderThickness="1"
+                    Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource AccentLine}"
+                    Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE896;" Foreground="{StaticResource Accent}" Margin="0,0,8,0" />
+                        <TextBlock Text="新しいバージョン" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding UpdateDetail}" Foreground="{StaticResource Dim}" FontSize="12" Margin="0,4,0,10" TextWrapping="Wrap" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="更新して再起動" Padding="10,7" Command="{Binding ApplyUpdateCommand}"
+                            ToolTip="ValoCapture を終了して新しいバージョンに更新し、起動し直します" />
+                </StackPanel>
+            </Border>
+
             <Button DockPanel.Dock="Top" Margin="0,10,0,0" Command="{Binding OpenSettingsCommand}"
                     ToolTip="録画先・音声デバイス・容量の上限などを変更します">
                 <StackPanel Orientation="Horizontal">
