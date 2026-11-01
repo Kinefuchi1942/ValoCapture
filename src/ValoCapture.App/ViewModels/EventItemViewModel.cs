@@ -31,7 +31,7 @@ public sealed partial class EventItemViewModel(MatchEvent e, bool isRoundBased, 
     public bool IsStreak => streak >= 2;
 
     // 再生位置との関係（一覧の左のバー・進みのバー・薄い表示に使う）
-    /// <summary>再生位置の直前に起きたイベント（今再生しているところ）か。</summary>
+    /// <summary>今再生しているところのイベントか（ジャンプしたときの再生開始位置から次のイベントの開始位置まで）。</summary>
     [ObservableProperty] private bool _isCurrent;
     /// <summary>再生位置より前に過ぎたイベント（再生中のものは除く）か。</summary>
     [ObservableProperty] private bool _isPast;

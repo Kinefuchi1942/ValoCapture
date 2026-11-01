@@ -367,7 +367,8 @@ public sealed partial class MainViewModel : ObservableObject
         Events.LastOrDefault(e => e.VideoTime - PreRoll < position - TimeSpan.FromSeconds(1));
 
     /// <summary>
-    /// 再生位置に合わせて、再生中のイベント（直前に起きたもの）・過ぎたイベント・次までの進みを更新する。
+    /// 再生位置に合わせて、再生中のイベント・過ぎたイベント・次までの進みを更新する。
+    /// イベントへジャンプすると少し前から再生するので、その分（PreRoll）前から再生中とみなす。
     /// 再生中のイベントが変わったら true（一覧をそこまでスクロールする）。
     /// </summary>
     public bool UpdatePlayback(TimeSpan position, TimeSpan duration)
@@ -376,12 +377,14 @@ public sealed partial class MainViewModel : ObservableObject
         for (var i = 0; i < Events.Count; i++)
         {
             var e = Events[i];
-            var next = i + 1 < Events.Count ? Events[i + 1].VideoTime : duration;
-            var isCurrent = e.VideoTime <= position && (i + 1 == Events.Count || next > position);
+            // シーク直後は再生位置が指定より少し手前に読めることがあるので、少し余裕を持たせる
+            var start = e.VideoTime - PreRoll - TimeSpan.FromMilliseconds(100);
+            var next = i + 1 < Events.Count ? Events[i + 1].VideoTime - PreRoll - TimeSpan.FromMilliseconds(100) : duration;
+            var isCurrent = start <= position && (i + 1 == Events.Count || next > position);
             e.IsCurrent = isCurrent;
-            e.IsPast = e.VideoTime <= position && !isCurrent;
+            e.IsPast = start <= position && !isCurrent;
             e.Progress = !isCurrent ? 0
-                : next > e.VideoTime ? Math.Clamp((position - e.VideoTime) / (next - e.VideoTime), 0, 1)
+                : next > start ? Math.Clamp((position - start) / (next - start), 0, 1)
                 : 1;
             if (isCurrent) playing = e;
         }
