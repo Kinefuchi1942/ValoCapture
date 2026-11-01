@@ -18,6 +18,9 @@ namespace ValoCapture.App;
 public partial class App : Application
 {
     private Mutex? _singleInstance;
+    /// <summary>あとから起動したプロセスが、起動済みのこのプロセスに画面を出すよう頼む合図。</summary>
+    private EventWaitHandle? _showRequest;
+    private RegisteredWaitHandle? _showRequestWait;
     private AppSettings _settings = new();
     private RecorderHost? _host;
     private VideoDefragmenter? _defragmenter;
@@ -43,11 +46,18 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // 2 つ起動すると二重に録画するので防ぐ
+        // 2 つ起動すると二重に録画するので防ぐ。起動済みなら、そちらの画面を前に出して終了する
         _singleInstance = new Mutex(true, @"Local\ValoCapture.App", out var isFirst);
+        _showRequest = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\ValoCapture.App.Show");
         if (!isFirst)
         {
-            MessageBox.Show("ValoCapture はすでに起動しています（タスクトレイを確認してください）。", "ValoCapture");
+            // 自動起動（--minimized）は、手で開いた画面を邪魔しないよう何もしない
+            if (!e.Args.Contains("--minimized"))
+            {
+                // 起動したこのプロセスが前面に出る権利を持っているので、起動済みのほうに譲る
+                AllowSetForegroundWindow(AsfwAny);
+                _showRequest.Set();
+            }
             Shutdown();
             return;
         }
@@ -75,12 +85,14 @@ public partial class App : Application
         _defragmenter = new VideoDefragmenter((dir, replace) => Dispatcher.InvokeAsync(() => _window!.ReplaceVideoAsync(dir, replace)).Task.Unwrap());
         _defragmenter.Log += WriteLog;
 
-        _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, OpenSettings, () => _ = ExitAsync(), IsQueueSelected, ToggleQueue,
-            () => _ = ApplyUpdateAsync());
+        _tray = new TrayIcon(ShowViewer, OpenRecordingsFolder, OpenSettings, () => _ = ExitAsync(), () => _ = ExitAsync(restart: true),
+            IsQueueSelected, ToggleQueue, () => _ = ApplyUpdateAsync());
 
         _window = new MainWindow(_vm);
         _window.Closing += OnWindowClosing;
         if (!e.Args.Contains("--minimized")) _window.Show();
+        _showRequestWait = ThreadPool.RegisterWaitForSingleObject(_showRequest, (_, _) =>
+            Dispatcher.BeginInvoke(() => { if (!_exiting) ShowViewer(); }), null, Timeout.Infinite, false);
 
         _statusTimer.Tick += (_, _) => UpdateStatus();
         _statusTimer.Start();
@@ -363,14 +375,18 @@ public partial class App : Application
     }
 
     /// <param name="update">指定すると、終了後にこの版へ更新して起動し直す。</param>
-    private async Task ExitAsync(Velopack.VelopackAsset? update = null)
+    /// <param name="restart">true なら、終了後に同じ版を起動し直す。</param>
+    private async Task ExitAsync(Velopack.VelopackAsset? update = null, bool restart = false)
     {
         if (_exiting) return;
         if (update is null && _host?.CurrentSession is not null &&
-            MessageBox.Show("録画中です。録画を停止して終了しますか？", "ValoCapture", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            MessageBox.Show($"録画中です。録画を停止して{(restart ? "再起動" : "終了")}しますか？", "ValoCapture", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
 
         _exiting = true;
+        // 再起動後も、画面を開いていたかどうかを引き継ぐ
+        var minimized = _window?.IsVisible != true;
+        _showRequestWait?.Unregister(null);
         _statusTimer.Stop();
         _updateTimer.Stop();
         if (_vm is not null) await _vm.CommitPendingDeleteAsync();
@@ -383,6 +399,13 @@ public partial class App : Application
         {
             try { _updater.ApplyAfterExit(update); }
             catch (Exception ex) { WriteLog($"更新を開始できません: {ex.Message}"); }
+        }
+        else if (restart)
+        {
+            // 起動し直したプロセスが二重起動と判定しないよう、先に手放しておく
+            _singleInstance?.ReleaseMutex();
+            try { Process.Start(Environment.ProcessPath!, minimized ? "--minimized" : ""); }
+            catch (Exception ex) { WriteLog($"再起動できません: {ex.Message}"); }
         }
         Shutdown();
     }
@@ -399,6 +422,12 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _singleInstance?.Dispose();
+        _showRequest?.Dispose();
         base.OnExit(e);
     }
+
+    private const int AsfwAny = -1;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int processId);
 }

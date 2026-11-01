@@ -18,8 +18,9 @@ public sealed class TrayIcon : IDisposable
 
     /// <param name="isQueueSelected">録画対象に含まれているか。</param>
     /// <param name="toggleQueue">録画対象の切り替え（キュー ID, 含めるか）。</param>
+    /// <param name="restart">同じ版のまま起動し直す。</param>
     /// <param name="applyUpdate">ダウンロード済みの新しい版に更新して再起動する。</param>
-    public TrayIcon(Action openViewer, Action openFolder, Action openSettings, Action exit,
+    public TrayIcon(Action openViewer, Action openFolder, Action openSettings, Action exit, Action restart,
         Func<string, bool> isQueueSelected, Action<string, bool> toggleQueue, Action applyUpdate)
     {
         _statusItem = new ToolStripMenuItem("起動中…") { Enabled = false };
@@ -48,6 +49,7 @@ public sealed class TrayIcon : IDisposable
         menu.Items.Add("設定…", null, (_, _) => openSettings());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_updateItem);
+        menu.Items.Add("再起動", null, (_, _) => restart());
         menu.Items.Add("終了", null, (_, _) => exit());
 
         _icon = new NotifyIcon
