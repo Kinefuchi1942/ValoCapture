@@ -45,6 +45,9 @@ public sealed class AppSettings
     /// <summary>起動時と 1 日 1 回、新しいバージョンを確認してダウンロードしておくか（適用はユーザーの操作で行う）。</summary>
     public bool CheckForUpdates { get; set; } = true;
 
+    /// <summary>前回起動したバージョン。今のバージョンと違えば更新されたとみなして起動時に知らせる。</summary>
+    public string? LastRunVersion { get; set; }
+
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ValoCapture", "settings.json");
 

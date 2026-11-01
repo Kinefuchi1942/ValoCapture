@@ -54,6 +54,9 @@ public partial class App : Application
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         _settings = AppSettings.Load();
+        // 初回起動（記録なし）は知らせず、前回と版が違うときだけ知らせる
+        var updatedFrom = _settings.LastRunVersion is { Length: > 0 } last && last != AppVersion ? last : null;
+        _settings.LastRunVersion = AppVersion;
         _settings.Save(); // 初回起動時に既定値のファイルを作っておく（手で編集できるように）
 
         _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume);
@@ -85,6 +88,11 @@ public partial class App : Application
         _host.Start();
         StartupRegistration.RefreshIfEnabled();
         WriteLog($"起動: バージョン={AppVersion} 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)}");
+        if (updatedFrom is not null)
+        {
+            WriteLog($"バージョン {updatedFrom} から {AppVersion} に更新");
+            _tray.Notify($"バージョン {AppVersion} に更新しました", $"バージョン {updatedFrom} から更新しました");
+        }
         EnforceStorageLimit();
         DefragmentRecordings();
         StartUpdateChecks();
