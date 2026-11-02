@@ -3,7 +3,7 @@ namespace ValoCapture.Core.Game;
 /// <summary>マップ ID・キュー ID・エージェント ID の表示名。</summary>
 public static class DisplayNames
 {
-    // マップ ID はコードネーム（/Game/Maps/Triad/Triad など）
+    // マップ ID はコードネーム（/Game/Maps/Triad/Triad など）。valorant-api.com の /v1/maps?language=ja-JP から作成
     private static readonly Dictionary<string, string> Maps = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Ascent"] = "アセント",
@@ -15,8 +15,23 @@ public static class DisplayNames
         ["Jam"] = "ロータス",
         ["Juliett"] = "サンセット",
         ["Pitt"] = "パール",
+        ["Plummet"] = "サミット",
         ["Port"] = "アイスボックス",
+        ["Rook"] = "カロード",
         ["Triad"] = "ヘイヴン",
+        // チームデスマッチ
+        ["HURM_Alley"] = "ディストリクト",
+        ["HURM_Bowl"] = "カスバ",
+        ["HURM_Helix"] = "ドリフト",
+        ["HURM_HighTide"] = "グリッチ",
+        ["HURM_Yard"] = "ピアッツァ",
+        // スカーミッシュ
+        ["Skirmish_A"] = "スカーミッシュ A",
+        ["Skirmish_B"] = "スカーミッシュ B",
+        ["Skirmish_C"] = "スカーミッシュ C",
+        ["Skirmish_D"] = "スカーミッシュ D",
+        ["Skirmish_E"] = "スカーミッシュ E",
+        ["AbilityDraft"] = "ガントレット",
     };
 
     private static readonly Dictionary<string, string> Queues = new(StringComparer.OrdinalIgnoreCase)
