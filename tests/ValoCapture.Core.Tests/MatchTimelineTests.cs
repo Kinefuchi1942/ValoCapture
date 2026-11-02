@@ -152,7 +152,7 @@ public class MatchTimelineTests
         var death = t.Events.Single(e => e.Type == MatchEventType.Death);
         Assert.Equal((jett, reyna), (kill.KillerAgent, kill.VictimAgent));
         Assert.Equal((reyna, jett), (death.KillerAgent, death.VictimAgent));
-        Assert.Equal("レイナ", DisplayNames.Agent(kill.VictimAgent));
+        Assert.Equal("Reyna", DisplayNames.Agent(kill.VictimAgent));
         Assert.Null(DisplayNames.Agent("unknown"));
     }
 
