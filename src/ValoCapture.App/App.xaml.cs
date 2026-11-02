@@ -8,6 +8,7 @@ using ValoCapture.App.ViewModels;
 using ValoCapture.Core.Game;
 using ValoCapture.Core.Sessions;
 using ValoCapture.Core.Settings;
+using ValoCapture.Core.Updates;
 
 namespace ValoCapture.App;
 
@@ -104,11 +105,29 @@ public partial class App : Application
         if (updatedFrom is not null)
         {
             WriteLog($"バージョン {updatedFrom} から {AppVersion} に更新");
-            _tray.Notify($"バージョン {AppVersion} に更新しました", $"バージョン {updatedFrom} から更新しました");
+            _vm.ShowReleaseNotes(updatedFrom, LoadReleaseNotes(updatedFrom));
+            // 自動起動などで画面を出していなければ、開いたときに変更点が見えるので通知だけする
+            if (!_window.IsVisible)
+                _tray.Notify($"バージョン {AppVersion} に更新しました", $"バージョン {updatedFrom} から更新しました。画面を開くと変更点を確認できます");
         }
         EnforceStorageLimit();
         DefragmentRecordings();
         StartUpdateChecks();
+    }
+
+    /// <summary>同梱の ReleaseNotes.md から、更新前の版より後の変更点を読む。読めなければ空。</summary>
+    private IReadOnlyList<ReleaseNote> LoadReleaseNotes(string updatedFrom)
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, ReleaseNotes.FileName);
+            return File.Exists(path) ? ReleaseNotes.Between(ReleaseNotes.Parse(File.ReadAllText(path)), updatedFrom, AppVersion) : [];
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"変更点を読めません: {ex.Message}");
+            return [];
+        }
     }
 
     /// <summary>

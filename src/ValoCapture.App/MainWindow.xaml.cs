@@ -342,6 +342,13 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // 更新後の変更点を出している間は Enter / Esc で閉じるだけ
+        if (_vm.IsReleaseNotesOpen)
+        {
+            if (e.Key is Key.Enter or Key.Escape) _vm.CloseReleaseNotesCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
         // 削除の確認中は Enter / Esc だけ受け付ける
         if (_vm.DeleteCandidate is not null)
         {

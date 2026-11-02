@@ -14,7 +14,10 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
+      # 変更点（ReleaseNotes.md）を前のタグからのコミットで作るので、履歴とタグをすべて取る
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:

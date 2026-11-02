@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Threading;
@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using ValoCapture.App.Services;
 using ValoCapture.Core.Recording;
 using ValoCapture.Core.Sessions;
+using ValoCapture.Core.Updates;
 
 namespace ValoCapture.App.ViewModels;
 
@@ -80,6 +81,16 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool HasUpdate => UpdateVersion.Length > 0;
     public string UpdateDetail => $"{UpdateVersion} に更新できます（今は {App.AppVersion}）";
+
+    // 更新後の起動時に出す変更点
+    /// <summary>変更点のダイアログを出しているか。</summary>
+    [ObservableProperty] private bool _isReleaseNotesOpen;
+    [ObservableProperty] private string _releaseNotesDetail = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasReleaseNotes))]
+    private IReadOnlyList<ReleaseNote> _releaseNotes = [];
+    public bool HasReleaseNotes => ReleaseNotes.Count > 0;
+    public string AppVersion => App.AppVersion;
 
     // 削除
     /// <summary>削除を確認している試合（確認ダイアログを出す）。</summary>
@@ -357,6 +368,23 @@ public sealed partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ApplyUpdate() => ApplyUpdateRequested?.Invoke();
+
+    /// <summary>更新前の版からこの版までの変更点を出す。</summary>
+    public void ShowReleaseNotes(string updatedFrom, IReadOnlyList<ReleaseNote> notes)
+    {
+        ReleaseNotes = notes;
+        ReleaseNotesDetail = notes.Count > 0
+            ? $"バージョン {updatedFrom} から更新しました。変更点は次のとおりです。"
+            : $"バージョン {updatedFrom} から更新しました。変更点は GitHub のリリースで確認できます。";
+        IsReleaseNotesOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseReleaseNotes() => IsReleaseNotesOpen = false;
+
+    [RelayCommand]
+    private void OpenReleasePage() =>
+        Process.Start(new ProcessStartInfo($"{AppUpdater.RepositoryUrl}/releases") { UseShellExecute = true });
 
     /// <summary>現在位置より後の最初のイベント（なければ null）。</summary>
     public EventItemViewModel? NextEvent(TimeSpan position) =>

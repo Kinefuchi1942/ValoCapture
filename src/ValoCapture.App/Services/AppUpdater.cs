@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using Velopack;
 using Velopack.Sources;
 
@@ -10,7 +10,7 @@ namespace ValoCapture.App.Services;
 /// </summary>
 public sealed class AppUpdater
 {
-    private const string RepositoryUrl = "https://github.com/Kinefuchi1942/ValoCapture";
+    public const string RepositoryUrl = "https://github.com/Kinefuchi1942/ValoCapture";
 
     /// <summary>手元で更新を試すときに、vpk pack の出力フォルダを更新元にする環境変数。</summary>
     private const string LocalSourceVariable = "VALOCAPTURE_UPDATE_SOURCE";

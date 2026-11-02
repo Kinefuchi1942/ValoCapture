@@ -661,6 +661,59 @@
         </Border>
     </Grid>
 
+    <!-- 更新後の起動時に、更新前の版からの変更点を一度だけ出す -->
+    <Grid Background="#9E05080C" Visibility="{Binding IsReleaseNotesOpen, Converter={StaticResource BoolToVisibility}}">
+        <Border Width="480" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22,20,22,18" CornerRadius="12"
+                Background="{StaticResource Panel}" BorderBrush="{StaticResource RuleStrong}" BorderThickness="1">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource AccentSoft}" Margin="0,0,10,0">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE73E;" FontSize="14" Foreground="{StaticResource Accent}" />
+                    </Border>
+                    <TextBlock FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center">
+                        <Run Text="{Binding AppVersion, Mode=OneTime}" FontFamily="{StaticResource NumFont}" /><Run Text=" に更新しました" />
+                    </TextBlock>
+                </StackPanel>
+                <TextBlock Text="{Binding ReleaseNotesDetail}" Margin="0,8,0,0" FontSize="13" Foreground="{StaticResource Soft}" TextWrapping="Wrap" />
+                <Border Margin="0,14,0,0" CornerRadius="8" Background="{StaticResource Field}" BorderBrush="{StaticResource Rule}" BorderThickness="1"
+                        Visibility="{Binding HasReleaseNotes, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto" Padding="12,10">
+                        <ItemsControl ItemsSource="{Binding ReleaseNotes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Version}" FontFamily="{StaticResource NumFont}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Date, StringFormat={}{0:yyyy/MM/dd}}" FontFamily="{StaticResource NumFont}" FontSize="12"
+                                                       Foreground="{StaticResource Dim}" Margin="8,0,0,0" VerticalAlignment="Bottom" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding Changes}" Margin="0,4,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,2,0,0">
+                                                        <TextBlock Text="・" Foreground="{StaticResource Dim}" FontSize="13" />
+                                                        <TextBlock Text="{Binding}" Foreground="{StaticResource Soft}" FontSize="13" TextWrapping="Wrap" />
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+                <DockPanel Margin="0,18,0,0">
+                    <Button DockPanel.Dock="Right" Content="OK" MinWidth="96" Style="{StaticResource PrimaryButton}" ToolTip="Enter"
+                            Command="{Binding CloseReleaseNotesCommand}" />
+                    <Button Content="GitHub でリリースを見る" HorizontalAlignment="Left" Foreground="{StaticResource Accent}"
+                            BorderBrush="Transparent" Background="Transparent" Style="{StaticResource SmallButton}"
+                            Command="{Binding OpenReleasePageCommand}" ToolTip="ブラウザーでリリースの一覧を開きます" />
+                </DockPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+
     <!-- 削除・クリップの保存の通知（タイムラインと操作にかからないよう、動画の下端に出す） -->
     <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,162" Padding="16,6,8,6" CornerRadius="10"
             Background="{StaticResource Hover}" BorderBrush="{StaticResource RuleStrong}" BorderThickness="1">
