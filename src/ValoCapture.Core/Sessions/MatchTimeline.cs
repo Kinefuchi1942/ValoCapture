@@ -9,6 +9,8 @@ public enum MatchEventType { RoundStart, Kill, Death, Assist }
 
 /// <param name="GameTimeMs">試合開始（gameStartMillis）からの経過時間。</param>
 /// <param name="VideoTimeMs">動画の先頭からの位置。録画範囲外なら null。</param>
+/// <param name="KillerAgent">キルしたプレイヤーのエージェント ID（players[].characterId）。</param>
+/// <param name="VictimAgent">倒されたプレイヤーのエージェント ID。</param>
 public sealed record MatchEvent(
     MatchEventType Type,
     int Round,
@@ -16,7 +18,9 @@ public sealed record MatchEvent(
     long? VideoTimeMs,
     string? Killer = null,
     string? Victim = null,
-    string? DamageItem = null);
+    string? DamageItem = null,
+    string? KillerAgent = null,
+    string? VictimAgent = null);
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum MatchOutcome { Win, Loss, Draw }
@@ -48,10 +52,10 @@ public sealed record MatchTimeline(
 public static class MatchTimelineBuilder
 {
     /// <summary>
-    /// 動画上の時刻の計算方法の版。1: gameTime の基準を gameStartMillis から参加開始時刻に変更。
+    /// timeline.json の作り方の版。1: gameTime の基準を gameStartMillis から参加開始時刻に変更。2: イベントにエージェント ID を追加。
     /// これより古い timeline.json は <see cref="MatchSession.LoadTimeline"/> で作り直す。
     /// </summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>
     /// gameTime の 0 は、最初のプレイヤーがゲームサーバーに参加した時刻（participationPeriods の sessionStartTime）の約 4.7 秒前。
@@ -86,6 +90,7 @@ public static class MatchTimelineBuilder
         }
 
         var kills = EnumerateKills(root).ToList();
+        var agents = ReadAgents(root);
         var events = new List<MatchEvent>();
 
         foreach (var (round, start) in RoundStarts(kills))
@@ -107,7 +112,8 @@ public static class MatchTimelineBuilder
                 case MatchEventType.Death: myDeaths++; break;
                 case MatchEventType.Assist: myAssists++; break;
             }
-            events.Add(new MatchEvent(type.Value, k.Round, k.GameTime, ToVideoTime(k.GameTime), k.Killer, k.Victim, k.DamageItem));
+            events.Add(new MatchEvent(type.Value, k.Round, k.GameTime, ToVideoTime(k.GameTime), k.Killer, k.Victim, k.DamageItem,
+                agents.GetValueOrDefault(k.Killer), agents.GetValueOrDefault(k.Victim)));
         }
 
         return new MatchTimeline(
@@ -193,6 +199,20 @@ public static class MatchTimelineBuilder
             }
         }
         return first;
+    }
+
+    // players[].subject（puuid）→ players[].characterId
+    private static Dictionary<string, string> ReadAgents(JsonElement root)
+    {
+        var agents = new Dictionary<string, string>();
+        if (!root.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return agents;
+        foreach (var p in players.EnumerateArray())
+        {
+            if (p.TryGetProperty("subject", out var s) && s.GetString() is { } subject
+                && p.TryGetProperty("characterId", out var c) && c.GetString() is { } characterId)
+                agents[subject] = characterId;
+        }
+        return agents;
     }
 
     /// <summary>試合詳細の JSON から自分のチームの勝敗を読む。判定できなければ null。</summary>

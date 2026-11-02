@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ValoCapture.Core.Game;
 using ValoCapture.Core.Sessions;
 
 namespace ValoCapture.Core.Tests;
@@ -135,6 +136,24 @@ public class MatchTimelineTests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Events_CarryAgentsOfKillerAndVictim()
+    {
+        const string jett = "add6443a-41bd-e414-f6ad-e58d267f4e95", reyna = "a3bfb853-43b2-7238-a4f1-ad90e9e46bcc";
+        var json = Match(
+            topKills: [Kill(10_000, 9_000, Me, "x"), Kill(20_000, 19_000, "x", Me)],
+            players: [new { subject = Me, teamId = "Blue", characterId = jett }, new { subject = "x", teamId = "Red", characterId = reyna }]);
+
+        var t = MatchTimelineBuilder.Build(json, Me, null, null);
+
+        var kill = t.Events.Single(e => e.Type == MatchEventType.Kill);
+        var death = t.Events.Single(e => e.Type == MatchEventType.Death);
+        Assert.Equal((jett, reyna), (kill.KillerAgent, kill.VictimAgent));
+        Assert.Equal((reyna, jett), (death.KillerAgent, death.VictimAgent));
+        Assert.Equal("レイナ", DisplayNames.Agent(kill.VictimAgent));
+        Assert.Null(DisplayNames.Agent("unknown"));
     }
 
     [Fact]

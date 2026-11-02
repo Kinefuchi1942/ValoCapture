@@ -414,6 +414,7 @@
                             <Ellipse Width="8" Height="8" Fill="{Binding Type, Converter={StaticResource EventBrush}}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding TimeText}" Style="{StaticResource Num}" FontWeight="SemiBold" Margin="8,0,6,0" />
                             <TextBlock Text="{Binding Label}" />
+                            <TextBlock Text="{Binding Opponent}" Foreground="{StaticResource Soft}" Margin="8,0,0,0" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -597,7 +598,10 @@
                                         </Border.RenderTransform>
                                     </Border>
                                 </Border>
-                                <TextBlock Grid.Column="2" Text="{Binding Label}" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Label}" />
+                                    <TextBlock Text="{Binding Opponent}" Foreground="{StaticResource Soft}" Margin="8,0,0,0" />
+                                </StackPanel>
                                 <TextBlock Grid.Column="3" Text="{Binding Note}" FontSize="11" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
