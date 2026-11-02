@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ValoCapture stats mockup</title>
+<style>
+  /* viewer.html と同じ配色 */
+  :root {
+    --ground: #0F141B; --panel: #161D26; --rule: #243040; --hover: #1C2633; --field: #0B1016;
+    --text: #E8ECF2; --dim: #8592A5; --soft: #C6CFDB;
+    --accent: #5CC8D7; --accent-soft: rgba(92, 200, 215, .12);
+    --kill: #6FD3A8; --death: #FF5D5D; --assist: #7FB2F0; --rec: #FF5D5D;
+    --win: #6FD3A8; --loss: #FF5D5D; --spike: #F2C46B;
+    --num: "Bahnschrift", "Segoe UI", sans-serif;
+    --ui: "Yu Gothic UI", "Meiryo UI", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1500px; height: 760px; overflow: hidden; background: var(--ground); color: var(--text);
+         font-family: var(--ui); font-size: 14px; padding: 16px;
+         display: grid; grid-template-columns: 236px 1fr 272px; gap: 16px; }
+  .num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+  .dim { color: var(--dim); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px;
+          border: 1px solid var(--rule); background: var(--panel); color: var(--soft); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+
+  /* 左列（viewer.html と同じ） */
+  .left { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .section { display: flex; align-items: baseline; justify-content: space-between; padding: 2px 4px 0; }
+  .section h2 { font-size: 16px; font-weight: 600; }
+  .matches { display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .match { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--rule); background: var(--panel); }
+  .match.sel { border-color: var(--accent); background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--panel); }
+  .match .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .match .map { font-size: 14px; font-weight: 600; }
+  .match .top .dim { font-size: 11px; }
+  .match .meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; font-size: 11px; }
+  .match .kda { font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .3px; }
+  .match .kda span { color: var(--dim); font-weight: 400; }
+  .match .res { font-family: var(--num); font-weight: 600; }
+
+  /* 中央 */
+  .center { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; padding: 0 2px; }
+  .title { display: flex; align-items: center; gap: 10px; }
+  .title h1 { font-size: 26px; font-weight: 600; }
+  .tabs { display: inline-flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--field); border: 1px solid var(--rule); margin-left: 6px; }
+  .tabs b { padding: 5px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  .tabs b.on { background: #223042; color: var(--text); }
+  .result { display: flex; align-items: baseline; gap: 10px; }
+  .result .big { font-family: var(--num); font-size: 34px; font-weight: 600; font-stretch: semi-condensed; line-height: 1; }
+  .result .tag { font-size: 13px; font-weight: 700; color: var(--win); letter-spacing: 1px; }
+
+  /* 自分のスタッツ */
+  .tiles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .tile { padding: 9px 12px 8px; }
+  .tile small { display: block; font-size: 11px; color: var(--dim); }
+  .tile b { display: block; font-family: var(--num); font-size: 24px; font-weight: 600; font-stretch: semi-condensed; line-height: 1.15; }
+  .tile .sub { font-size: 11px; color: var(--dim); font-family: var(--num); }
+  .tile .sub.up { color: var(--win); }
+
+  /* ラウンドの流れ */
+  .rounds { padding: 12px 14px 10px; }
+  .rounds .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .rounds h3, .board h3 { font-size: 14px; font-weight: 600; }
+  .legend { display: flex; gap: 12px; font-size: 11px; color: var(--dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .rgrid { display: grid; grid-template-columns: 64px repeat(23, 1fr); column-gap: 3px; row-gap: 4px; align-items: center; }
+  .rgrid .lbl { font-size: 11px; color: var(--dim); }
+  .rc { height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font: 600 11px var(--num); }
+  .rc.w { background: rgba(111, 211, 168, .18); color: var(--win); }
+  .rc.l { background: rgba(255, 93, 93, .16); color: var(--loss); }
+  .rc.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .rc.half { margin-left: 8px; }
+  .rk { height: 18px; display: flex; gap: 2px; justify-content: center; align-items: center; }
+  .rk i { width: 5px; height: 12px; border-radius: 1px; background: var(--kill); }
+  .rk i.d { width: 5px; height: 5px; border-radius: 50%; background: var(--death); }
+  .rd { position: relative; height: 26px; }
+  .rd i { position: absolute; left: 2px; right: 2px; bottom: 0; border-radius: 2px 2px 0 0; background: #3B5874; }
+  .rd i.hi { background: var(--accent); }
+  .rb { font-size: 10px; text-align: center; color: var(--dim); white-space: nowrap; }
+  .rb.full { color: var(--soft); }
+  .rb.eco { color: #6F7C8F; }
+  .half-gap { margin-left: 8px; }
+
+  /* スコアボード */
+  .board { padding: 10px 14px 8px; flex: 1; min-height: 0; }
+  .board .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; font-weight: 400; color: var(--dim); text-align: right; padding: 3px 8px; }
+  th:first-child, td:first-child { text-align: left; }
+  th.sort { color: var(--text); }
+  th.sort::after { content: " ▾"; color: var(--accent); }
+  td { font-family: var(--num); font-variant-numeric: tabular-nums; text-align: right; padding: 3.5px 8px; font-size: 13px; color: var(--soft); }
+  td.agent { font-family: var(--ui); color: var(--text); display: flex; align-items: center; gap: 8px; }
+  td.agent .bar { width: 3px; height: 15px; border-radius: 2px; }
+  tr.me td { background: var(--accent-soft); color: var(--text); }
+  tr.me td:first-child { border-radius: 6px 0 0 6px; }
+  tr.me td:last-child { border-radius: 0 6px 6px 0; }
+  tr.me .you { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--accent); color: #0B1117; font-weight: 700; }
+  tr.team td { padding-top: 7px; font-family: var(--ui); font-size: 11px; color: var(--dim); text-align: left; }
+  .pos { color: var(--win); } .neg { color: var(--loss); }
+  .mvp { font: 700 10px var(--num); color: var(--spike); margin-left: 2px; }
+
+  /* 右列：選んだラウンドの詳細 */
+  .right { display: flex; flex-direction: column; min-height: 0; padding: 14px 12px 12px; gap: 12px; }
+  .right h2 { font-size: 18px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; }
+  .rres { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 8px;
+          background: rgba(111, 211, 168, .1); border: 1px solid rgba(111, 211, 168, .35); }
+  .rres b { color: var(--win); font-size: 14px; }
+  .rres .dim { font-size: 12px; }
+  .blk h4 { font-size: 12px; font-weight: 600; color: var(--dim); margin-bottom: 6px; }
+  .kv { display: grid; grid-template-columns: 1fr auto; row-gap: 4px; font-size: 13px; }
+  .kv span:nth-child(even) { font-family: var(--num); text-align: right; }
+  .dmg { display: flex; flex-direction: column; gap: 7px; }
+  .dmg .row { display: grid; grid-template-columns: 62px 1fr 34px; gap: 8px; align-items: center; font-size: 12px; }
+  .dmg .row .v { font-family: var(--num); text-align: right; }
+  .hb { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--field); }
+  .hb i:nth-child(1) { background: #F2C46B; } .hb i:nth-child(2) { background: #5CC8D7; } .hb i:nth-child(3) { background: #3B5874; }
+  .feed { display: flex; flex-direction: column; gap: 2px; }
+  .feed .ev { display: grid; grid-template-columns: 10px 40px 1fr; gap: 8px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: 12px; }
+  .feed .ev .t { font-family: var(--num); color: var(--soft); }
+  .feed .ev:hover { background: var(--hover); }
+  .play { margin-top: auto; height: 34px; border-radius: 8px; background: var(--accent); color: #0B1117; font-weight: 700; font-size: 13px;
+          display: flex; align-items: center; justify-content: center; gap: 6px; }
+</style>
+</head>
+<body>
+
+<!-- 左：試合一覧（勝敗とスコアを追加） -->
+<div class="left">
+  <div class="section"><h2>試合</h2><span class="dim num">4</span></div>
+  <div class="matches" id="matches"></div>
+</div>
+
+<!-- 中央：スタッツ -->
+<div class="center">
+  <div class="head">
+    <div class="title">
+      <h1>アセント</h1>
+      <span class="chip">コンペティティブ</span>
+      <span class="chip num">11/01 21:12</span>
+      <div class="tabs"><b>動画</b><b class="on">スタッツ</b></div>
+    </div>
+    <div class="result">
+      <span class="tag">勝利</span>
+      <span class="big"><span style="color: var(--win)">13</span><span class="dim" style="font-size: 24px"> – </span><span style="color: var(--loss)">10</span></span>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="panel rounds">
+    <div class="hd">
+      <h3>ラウンドの流れ</h3>
+      <div class="legend">
+        <span><i class="dot" style="background: var(--win)"></i>勝ち</span>
+        <span><i class="dot" style="background: var(--loss)"></i>負け</span>
+        <span>E 全滅 · B 爆破 · D 解除 · T 時間切れ</span>
+        <span>クリックでそのラウンドへ</span>
+      </div>
+    </div>
+    <div class="rgrid" id="rgrid"></div>
+  </div>
+
+  <div class="panel board">
+    <div class="hd"><h3>スコアボード</h3><span class="dim" style="font-size: 11px">他のプレイヤーは名前を出さずエージェントで表示</span></div>
+    <table id="board"></table>
+  </div>
+</div>
+
+<!-- 右：選んだラウンドの詳細 -->
+<div class="panel right">
+  <h2>ラウンド 7 <span class="dim num" style="font-size: 12px">攻め · 4–2 → 5–2</span></h2>
+  <div class="rres"><b>勝ち</b><span class="dim">スパイク爆破 · B サイト · 1:12 に設置</span></div>
+
+  <div class="blk">
+    <h4>自分</h4>
+    <div class="kv">
+      <span>キル / デス</span><span>2 / 0</span>
+      <span>ダメージ</span><span>287</span>
+      <span>購入</span><span>Vandal · ヘビーシールド</span>
+      <span>使った / 残り</span><span>3,900 / 1,250</span>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h4>与えたダメージ <span style="font-weight: 400">（<span style="color: #F2C46B">頭</span> · <span style="color: var(--accent)">体</span> · 脚）</span></h4>
+    <div class="dmg">
+      <div class="row"><span>Reyna</span><div class="hb"><i style="width: 52%"></i><i style="width: 28%"></i><i style="width: 0"></i></div><span class="v">160</span></div>
+      <div class="row"><span>Cypher</span><div class="hb"><i style="width: 0"></i><i style="width: 46%"></i><i style="width: 0"></i></div><span class="v">92</span></div>
+      <div class="row"><span>Viper</span><div class="hb"><i style="width: 0"></i><i style="width: 0"></i><i style="width: 18%"></i></div><span class="v">35</span></div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h4>イベント</h4>
+    <div class="feed">
+      <div class="ev"><span class="dot" style="background: var(--kill)"></span><span class="t">09:41</span><span>キル → Reyna <span class="dim">· Vandal</span></span></div>
+      <div class="ev"><span class="dot" style="background: var(--spike)"></span><span class="t">09:58</span><span>スパイク設置 <span class="dim">· Killjoy</span></span></div>
+      <div class="ev"><span class="dot" style="background: var(--kill)"></span><span class="t">10:06</span><span>キル → Cypher <span class="dim">· Vandal</span></span></div>
+      <div class="ev"><span class="dot" style="background: var(--spike)"></span><span class="t">10:43</span><span>スパイク爆破</span></div>
+    </div>
+  </div>
+
+  <div class="play">▶ ラウンド 7 を再生</div>
+</div>
+
+<script>
+  // ---- 自分のスタッツ（match.json の players[].stats と roundResults[].playerStats から計算する想定） ----
+  const tiles = [
+    ["ACS", "248", "チーム 1 位", "up"],
+    ["K / D / A", "21/15/6", "K/D 1.40", "up"],
+    ["ADR", "158", "1 ラウンドあたり", ""],
+    ["HS%", "27%", "頭 41 · 体 104 · 脚 7", ""],
+    ["KAST", "74%", "17 / 23 ラウンド", ""],
+    ["先制キル / デス", "4 / 2", "ファーストブラッド", ""],
+    ["マルチキル", "3K×2", "2K×4", ""],
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(([k, v, s, c]) =>
+    `<div class="panel tile"><small>${k}</small><b>${v}</b><span class="sub ${c}">${s}</span></div>`).join("");
+
+  // ---- ラウンドの流れ（23 ラウンド） ----
+  // 勝敗 w/l、決着 E/B/D/T、自分のキル数、自分が死んだか、与ダメ、購入額
+  const rounds = [
+    ["w","E",1,0, 96, 800], ["w","B",2,0,214,2900], ["l","E",0,1, 41,4100], ["w","D",1,1,130,3900],
+    ["l","B",0,1, 22,1200], ["w","E",3,0,331,4300], ["w","B",2,0,287,3900], ["w","E",1,1,148,4300],
+    ["l","E",1,1,112,4100], ["l","T",0,1, 58,1600], ["w","E",2,0,205,3900], ["l","B",0,1, 70,4300],
+    ["w","E",1,1,119, 800], ["l","E",0,1, 31,2400], ["w","D",3,0,302,4100], ["w","E",1,1,140,3900],
+    ["l","D",0,1, 64,4300], ["w","E",2,0,198,4100], ["l","E",0,1, 88,1000], ["w","D",1,1,156,3900],
+    ["l","B",1,1,121,4300], ["l","E",0,1, 49,4100], ["w","E",2,0,252,4300],
+  ];
+  const maxDmg = Math.max(...rounds.map(r => r[4]));
+  const buy = v => v >= 3900 ? ["フル", "full"] : v >= 2000 ? ["ハーフ", ""] : ["エコ", "eco"];
+  const half = i => i === 12 ? " half" : "";
+  let html = `<span class="lbl">ラウンド</span>`;
+  rounds.forEach((r, i) => html += `<div class="rc ${r[0]}${half(i)}${i === 6 ? " sel" : ""}">${i + 1}<span style="opacity:.7;margin-left:2px">${r[1]}</span></div>`);
+  html += `<span class="lbl">キル / デス</span>`;
+  rounds.forEach((r, i) => html += `<div class="rk${i === 12 ? " half-gap" : ""}">${"<i></i>".repeat(r[2])}${r[3] ? '<i class="d"></i>' : ""}</div>`);
+  html += `<span class="lbl">ダメージ</span>`;
+  rounds.forEach((r, i) => html += `<div class="rd${i === 12 ? " half-gap" : ""}"><i class="${r[4] >= 200 ? "hi" : ""}" style="height:${Math.max(2, r[4] / maxDmg * 26)}px" title="${r[4]}"></i></div>`);
+  html += `<span class="lbl">購入</span>`;
+  rounds.forEach((r, i) => { const [t, c] = buy(r[5]); html += `<div class="rb ${c}${i === 12 ? " half-gap" : ""}">${t}</div>`; });
+  document.getElementById("rgrid").innerHTML = html;
+
+  // ---- スコアボード ----
+  const mine = [
+    ["Jett", 248, 21, 15, 6, 158, 27, 74, 4, true, true],
+    ["Sova", 221, 18, 14, 9, 142, 24, 83, 3],
+    ["Omen", 189, 15, 16, 8, 121, 19, 70, 2],
+    ["Killjoy", 172, 14, 15, 5, 110, 31, 74, 1],
+    ["Skye", 131, 9, 17, 13, 86, 15, 78, 1],
+  ];
+  const theirs = [
+    ["Reyna", 236, 20, 17, 3, 151, 22, 65, 5, false, true],
+    ["Fade", 205, 17, 16, 7, 133, 25, 70, 2],
+    ["Cypher", 176, 14, 16, 6, 113, 29, 65, 2],
+    ["Viper", 158, 12, 17, 9, 104, 18, 61, 1],
+    ["Breach", 120, 8, 17, 11, 79, 14, 57, 1],
+  ];
+  const row = (p, color) => {
+    const [agent, acs, k, d, a, adr, hs, kast, fk, me, mvp] = p;
+    const diff = k - d;
+    return `<tr class="${me ? "me" : ""}">
+      <td class="agent"><span class="bar" style="background:${color}"></span>${agent}${me ? ' <span class="you">あなた</span>' : ""}${mvp ? '<span class="mvp">MVP</span>' : ""}</td>
+      <td>${acs}</td><td>${k}</td><td>${d}</td><td>${a}</td>
+      <td class="${diff > 0 ? "pos" : diff < 0 ? "neg" : ""}">${diff > 0 ? "+" : ""}${diff}</td>
+      <td>${adr}</td><td>${hs}%</td><td>${kast}%</td><td>${fk}</td></tr>`;
+  };
+  document.getElementById("board").innerHTML = `
+    <tr><th>エージェント</th><th class="sort">ACS</th><th>K</th><th>D</th><th>A</th><th>+/−</th><th>ADR</th><th>HS%</th><th>KAST</th><th>FK</th></tr>
+    <tr class="team"><td colspan="10">味方 · 13</td></tr>
+    ${mine.map(p => row(p, "var(--win)")).join("")}
+    <tr class="team"><td colspan="10">相手 · 10</td></tr>
+    ${theirs.map(p => row(p, "var(--loss)")).join("")}`;
+
+  // ---- 試合一覧 ----
+  const matches = [
+    { map: "アセント", queue: "コンペティティブ", date: "11/01 21:12", res: "13–10", win: true, k: 21, d: 15, a: 6, rr: "+21", sel: true },
+    { map: "ロータス", queue: "コンペティティブ", date: "11/01 20:24", res: "9–13", win: false, k: 14, d: 18, a: 4, rr: "−16" },
+    { map: "ヘイヴン", queue: "アンレート", date: "11/01 19:40", res: "13–7", win: true, k: 19, d: 11, a: 7 },
+    { map: "サンセット", queue: "デスマッチ", date: "10/28 22:40", res: "", k: 17, d: 31, a: 4 },
+  ];
+  document.getElementById("matches").innerHTML = matches.map(m => `
+    <div class="match${m.sel ? " sel" : ""}">
+      <div class="top"><span class="map">${m.map}</span><span class="dim num">${m.date}</span></div>
+      <div class="meta"><span class="dim">${m.queue}</span>
+        <span class="kda num">${m.k} <span>/</span> ${m.d} <span>/</span> ${m.a}</span></div>
+      ${m.res ? `<div class="meta"><span class="res" style="color:${m.win ? "var(--win)" : "var(--loss)"}">${m.win ? "勝利" : "敗北"} ${m.res}</span>
+        ${m.rr ? `<span class="num" style="color:${m.win ? "var(--win)" : "var(--loss)"}">${m.rr} RR</span>` : ""}</div>` : ""}
+    </div>`).join("");
+</script>
+</body>
+</html>
