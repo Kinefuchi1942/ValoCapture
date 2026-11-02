@@ -42,7 +42,15 @@ public sealed class MatchTarget
         Queues = queues.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     public bool Matches(GameSnapshot snapshot) =>
-        snapshot.QueueId.Length > 0 && Queues.Contains(snapshot.QueueId);
+        snapshot.QueueId.Length > 0 && Queues.Contains(snapshot.QueueId) && !IsShootingRange(snapshot);
+
+    /// <summary>
+    /// 演習場か。演習場の presence は queueId に直前に選んでいたキュー（competitive など）が残るため、
+    /// provisioningFlow とマップ（/Game/Maps/PovegliaV2/RangeV2 など）で見分ける。
+    /// </summary>
+    public static bool IsShootingRange(GameSnapshot snapshot) =>
+        snapshot.ProvisioningFlow.Equals("ShootingRange", StringComparison.OrdinalIgnoreCase)
+        || snapshot.MapId[(snapshot.MapId.LastIndexOf('/') + 1)..].StartsWith("Range", StringComparison.OrdinalIgnoreCase);
 
     public override string ToString() => string.Join(",", Queues);
 }

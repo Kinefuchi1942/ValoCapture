@@ -86,6 +86,24 @@ public class PresenceTests
         Assert.False(target.Matches(Snap("")));
     }
 
+    [Theory]
+    [InlineData("/Game/Maps/PovegliaV2/RangeV2", "")]
+    [InlineData("/Game/Maps/Poveglia/Range", "")]
+    [InlineData("", "ShootingRange")]
+    public void MatchTarget_ExcludesShootingRange(string mapId, string flow)
+    {
+        // 演習場でも queueId は直前に選んでいたキューのまま
+        var snap = new GameSnapshot(GameState.InGame, DateTimeOffset.UtcNow, QueueIds.Competitive, mapId, flow);
+        Assert.False(MatchTarget.Default.Matches(snap));
+    }
+
+    [Fact]
+    public void MatchTarget_KeepsNormalMap()
+    {
+        var snap = new GameSnapshot(GameState.InGame, DateTimeOffset.UtcNow, QueueIds.Competitive, "/Game/Maps/Ascent/Ascent", "Matchmaking");
+        Assert.True(MatchTarget.Default.Matches(snap));
+    }
+
     private static GameSnapshot Snap(string queueId) => new(GameState.InGame, DateTimeOffset.UtcNow, queueId);
 
     [Fact]
