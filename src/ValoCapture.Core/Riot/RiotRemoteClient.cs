@@ -53,6 +53,31 @@ public sealed class RiotRemoteClient : IDisposable
         return await res.Content.ReadAsStringAsync(ct);
     }
 
+    /// <summary>直近のコンペティティブの試合ごとの RR の増減（mmr competitiveupdates）の生 JSON。</summary>
+    public async Task<string> GetCompetitiveUpdatesJsonAsync(int count = 20, CancellationToken ct = default)
+    {
+        var ent = await _local.GetEntitlementsAsync(ct);
+        using var res = await SendAsync(
+            $"{PdBase}/mmr/v1/players/{ent.Puuid}/competitiveupdates?startIndex=0&endIndex={count}&queue=competitive", ent, ct);
+        res.EnsureSuccessStatusCode();
+        return await res.Content.ReadAsStringAsync(ct);
+    }
+
+    /// <summary>competitiveupdates の応答から MatchID → RankedRatingEarned を取り出す。</summary>
+    public static Dictionary<string, int> ReadRankedRatingEarned(string competitiveUpdatesJson)
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        using var doc = JsonDocument.Parse(competitiveUpdatesJson);
+        if (!doc.RootElement.TryGetProperty("Matches", out var matches) || matches.ValueKind != JsonValueKind.Array) return result;
+        foreach (var m in matches.EnumerateArray())
+        {
+            if (m.GetStringOrEmpty("MatchID") is { Length: > 0 } id
+                && m.TryGetProperty("RankedRatingEarned", out var rr) && rr.ValueKind == JsonValueKind.Number)
+                result[id] = rr.GetInt32();
+        }
+        return result;
+    }
+
     private async Task<HttpResponseMessage> SendAsync(string url, EntitlementsToken ent, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);

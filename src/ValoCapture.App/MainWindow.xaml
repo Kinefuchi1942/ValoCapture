@@ -15,6 +15,115 @@
     <Window.Resources>
         <controls:EventTypeToBrushConverter x:Key="EventBrush" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <controls:RoundEventTypeToBrushConverter x:Key="RoundEventBrush" />
+        <!-- スタッツの小見出し -->
+        <Style x:Key="StatsHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="DetailHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Dim}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <!-- スコアボードの数値の列 -->
+        <Style x:Key="BoardCell" TargetType="TextBlock" BasedOn="{StaticResource Num}">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource Soft}" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="BoardHead" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource Dim}" />
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+        <!-- ラウンドの流れの 1 列。枠や背景は中のセルで出す -->
+        <Style x:Key="RoundItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTip" Value="{Binding ToolTipText}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter Margin="{Binding SideSwitchMargin}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- スコアボードの行（自分の行を強調）。列の幅はヘッダーと揃える -->
+        <DataTemplate x:Key="ScoreRowTemplate" DataType="vm:ScoreRowViewModel">
+            <Border CornerRadius="6" Padding="8,3">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMe}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AccentSoft}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="80" />
+                        <ColumnDefinition Width="46" />
+                        <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="46" />
+                        <ColumnDefinition Width="32" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="3" Height="15" CornerRadius="1.5" Margin="0,0,8,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Death}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAlly}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Kill}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                        <TextBlock Text="{Binding Agent}" FontSize="13" />
+                        <Border Margin="6,0,0,0" Padding="5,0" CornerRadius="4" Background="{StaticResource Accent}" VerticalAlignment="Center"
+                                Visibility="{Binding IsMe, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="あなた" FontSize="10" FontWeight="Bold" Foreground="#0B1117" />
+                        </Border>
+                        <TextBlock Text="MVP" FontFamily="{StaticResource NumFont}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Spike}"
+                                   Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="チームの MVP"
+                                   Visibility="{Binding IsMvp, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding Acs}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Kills}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="3" Text="{Binding Deaths}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="4" Text="{Binding Assists}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="5" Text="{Binding DiffText}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource BoardCell}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DiffSign}" Value="1">
+                                        <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DiffSign}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Grid.Column="6" Text="{Binding AdrText}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="7" Text="{Binding HeadshotText}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="8" Text="{Binding KastText}" Style="{StaticResource BoardCell}" />
+                    <TextBlock Grid.Column="9" Text="{Binding FirstKillsText}" Style="{StaticResource BoardCell}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
         <!-- アイコンは Windows 標準のアイコンフォント -->
         <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
         <!-- ブックマーク（☆）。オンの試合は容量制限で自動削除されない -->
@@ -316,25 +425,54 @@
                                     </TextBlock>
                                 </Grid>
                                 <TextBlock Foreground="{StaticResource Dim}" FontSize="11" VerticalAlignment="Bottom" TextTrimming="CharacterEllipsis">
-                                    <Run Text="{Binding ResultText, Mode=OneWay}" FontFamily="{StaticResource NumFont}" FontWeight="SemiBold">
-                                        <Run.Style>
-                                            <Style TargetType="Run">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Win">
-                                                        <Setter Property="Foreground" Value="{StaticResource Kill}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Loss">
-                                                        <Setter Property="Foreground" Value="{StaticResource Death}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Draw">
-                                                        <Setter Property="Foreground" Value="{StaticResource Soft}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Run.Style>
-                                    </Run><Run Text="{Binding QueueName, Mode=OneWay}" />
+                                    <Run Text="{Binding QueueName, Mode=OneWay}" />
                                     <Run Text="·" />
                                     <Run Text="{Binding DurationText, Mode=OneWay}" FontFamily="{StaticResource NumFont}" />
+                                </TextBlock>
+                            </DockPanel>
+                            <!-- 勝敗と RR の増減 -->
+                            <DockPanel Margin="0,2,0,0">
+                                <DockPanel.Style>
+                                    <Style TargetType="DockPanel">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ResultText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DockPanel.Style>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding RankedRatingText}" FontFamily="{StaticResource NumFont}" FontSize="12"
+                                           FontWeight="SemiBold" ToolTip="この試合での RR の増減">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RankedRatingSign}" Value="1">
+                                                    <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding RankedRatingSign}" Value="-1">
+                                                    <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding ResultText}" FontFamily="{StaticResource NumFont}" FontSize="12" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Result.Outcome}" Value="Win">
+                                                    <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Result.Outcome}" Value="Loss">
+                                                    <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Result.Outcome}" Value="Draw">
+                                                    <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
                                 </TextBlock>
                             </DockPanel>
                             <controls:MatchStrip Height="4" Margin="0,7,0,0" Events="{Binding StripEvents}" Duration="{Binding Duration}" />
@@ -355,7 +493,31 @@
 
             <!-- 見出し：マップ・モード・日時とスコア -->
             <DockPanel x:Name="Header" Margin="2,0,2,10" DataContext="{Binding SelectedSession}">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding HasScore, Converter={StaticResource BoolToVisibility}}">
+                <!-- スタッツを出しているときは K/D/A の代わりに勝敗とスコア -->
+                <StackPanel x:Name="HeaderResult" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom" Visibility="Collapsed">
+                    <TextBlock Text="{Binding OutcomeText}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Win">
+                                        <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Result.Outcome}" Value="Loss">
+                                        <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource Num}" FontSize="32" FontWeight="SemiBold">
+                        <Run Text="{Binding Result.MyScore, Mode=OneWay}" Foreground="{StaticResource Kill}" />
+                        <Run Text="–" Foreground="{StaticResource Dim}" FontSize="24" />
+                        <Run Text="{Binding Result.OpponentScore, Mode=OneWay}" Foreground="{StaticResource Death}" />
+                    </TextBlock>
+                </StackPanel>
+                <Border x:Name="HeaderScore" DockPanel.Dock="Right">
+                <StackPanel Orientation="Horizontal" Visibility="{Binding HasScore, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel Margin="18,0,0,0">
                         <TextBlock Text="{Binding Timeline.MyKills}" Style="{StaticResource Num}" FontSize="32" FontWeight="SemiBold"
                                    Foreground="{StaticResource Kill}" HorizontalAlignment="Right" />
@@ -372,7 +534,23 @@
                         <TextBlock Text="アシスト" FontSize="11" Foreground="{StaticResource Dim}" HorizontalAlignment="Right" />
                     </StackPanel>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                </Border>
+                <!-- 動画とスタッツの切り替え -->
+                <Border Background="{StaticResource Field}" BorderBrush="{StaticResource Rule}" BorderThickness="1" CornerRadius="9" Padding="3"
+                        DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="VideoTab" Style="{StaticResource SegmentItem}" GroupName="View" IsChecked="True" Checked="OnViewTabChecked"
+                                     FontFamily="{StaticResource UiFont}" FontSize="13" Padding="4,0" ToolTip="動画 (S で切り替え)">
+                            <TextBlock Text="動画" Margin="4,0" />
+                        </RadioButton>
+                        <RadioButton x:Name="StatsTab" Style="{StaticResource SegmentItem}" GroupName="View" Checked="OnViewTabChecked"
+                                     FontFamily="{StaticResource UiFont}" FontSize="13" ToolTip="スコアボード・ラウンドの流れ (S で切り替え)">
+                            <TextBlock Text="スタッツ" Margin="4,0" />
+                        </RadioButton>
+                    </StackPanel>
+                </Border>
+                <!-- 狭いときは右の切り替えとスコアを優先し、こちらを切り詰める -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
                     <TextBlock Text="{Binding MapName}" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Border Style="{StaticResource Chip}" Margin="12,0,0,0">
                         <TextBlock Text="{Binding QueueName}" FontSize="12" Foreground="{StaticResource Soft}" />
@@ -503,11 +681,232 @@
                     </TextBlock>
                 </Button>
             </DockPanel>
+
+            <!-- スタッツ（動画・タイムライン・操作の代わりに出す） -->
+            <Grid x:Name="StatsPanel" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed">
+                <TextBlock Text="{Binding StatsMessage}" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextWrapping="Wrap" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" DataContext="{Binding Stats}">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <StackPanel>
+                        <!-- 自分の成績 -->
+                        <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,0,-8,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:StatTile">
+                                    <Border Style="{StaticResource PanelBorder}" Padding="12,9,12,8" Margin="0,0,8,0">
+                                        <StackPanel>
+                                            <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Label}" FontSize="11" Foreground="{StaticResource Dim}" />
+                                            </Viewbox>
+                                            <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Value}" Style="{StaticResource Num}" FontSize="24" FontWeight="SemiBold" />
+                                            </Viewbox>
+                                            <TextBlock Text="{Binding Sub}" FontFamily="{StaticResource NumFont}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Sub}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource Dim}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsGood}" Value="True">
+                                                                <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- ラウンドの流れ -->
+                        <Border Style="{StaticResource PanelBorder}" Margin="0,12,0,0" Padding="14,12,14,10"
+                                Visibility="{Binding IsRoundBased, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="8" Height="8" Fill="{StaticResource Kill}" Margin="0,0,4,0" />
+                                        <TextBlock Text="勝ち" FontSize="11" Foreground="{StaticResource Dim}" Margin="0,0,12,0" />
+                                        <Ellipse Width="8" Height="8" Fill="{StaticResource Death}" Margin="0,0,4,0" />
+                                        <TextBlock Text="負け" FontSize="11" Foreground="{StaticResource Dim}" Margin="0,0,12,0" />
+                                        <TextBlock Text="E 全滅 · B 爆破 · D 解除 · T 時間切れ" FontSize="11" Foreground="{StaticResource Dim}" Margin="0,0,12,0" />
+                                        <TextBlock Text="クリックで詳細" FontSize="11" Foreground="{StaticResource Dim}" />
+                                    </StackPanel>
+                                    <TextBlock Text="ラウンドの流れ" Style="{StaticResource StatsHeading}" />
+                                </DockPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="ラウンド" Height="22" Margin="0,0,0,4" FontSize="11" Foreground="{StaticResource Dim}" Padding="0,4,0,0" />
+                                        <TextBlock Text="キル / デス" Height="18" Margin="0,0,0,4" FontSize="11" Foreground="{StaticResource Dim}" Padding="0,2,0,0" />
+                                        <TextBlock Text="ダメージ" Height="26" Margin="0,0,0,4" FontSize="11" Foreground="{StaticResource Dim}" Padding="0,8,0,0" />
+                                        <TextBlock Text="購入" Height="14" FontSize="11" Foreground="{StaticResource Dim}" />
+                                    </StackPanel>
+                                    <ListBox x:Name="RoundList" Grid.Column="1" ItemsSource="{Binding Rounds}" SelectedItem="{Binding SelectedRound}"
+                                             ItemContainerStyle="{StaticResource RoundItemStyle}" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Rows="1" />
+                                            </ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="vm:RoundItemViewModel">
+                                                <StackPanel Margin="1.5,0">
+                                                    <!-- 番号と決着。勝ちは緑、負けは赤。選んだラウンドは枠で示す -->
+                                                    <Border Height="22" CornerRadius="4" BorderThickness="1.5" Padding="2,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="{StaticResource LossSoft}" />
+                                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Won}" Value="True">
+                                                                        <Setter Property="Background" Value="{StaticResource WinSoft}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                            <TextBlock FontFamily="{StaticResource NumFont}" FontSize="12" FontWeight="SemiBold"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Won}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                                <Run Text="{Binding Number, Mode=OneWay}" /><Run Text=" " FontSize="6" /><Run
+                                                                     Text="{Binding Code, Mode=OneWay}" FontSize="10" />
+                                                            </TextBlock>
+                                                    </Border>
+                                                    <!-- 自分のキル（縦の棒）とデス（赤い点） -->
+                                                    <StackPanel Height="18" Margin="0,4,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+                                                        <ItemsControl ItemsSource="{Binding KillMarks}" VerticalAlignment="Center">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Horizontal" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Rectangle Width="4" Height="12" RadiusX="1" RadiusY="1" Fill="{StaticResource Kill}" Margin="1,0" />
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Death}" Margin="1,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding Died, Converter={StaticResource BoolToVisibility}}" />
+                                                    </StackPanel>
+                                                    <!-- 与えたダメージ（試合でいちばん多いラウンドを満タンにした棒） -->
+                                                    <Grid Height="26" Margin="0,4,0,0">
+                                                        <Border Height="{Binding DamageBar}" VerticalAlignment="Bottom" Margin="2,0" CornerRadius="2,2,0,0">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="#3B5874" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsHighDamage}" Value="True">
+                                                                            <Setter Property="Background" Value="{StaticResource Accent}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                        </Border>
+                                                    </Grid>
+                                                    <Viewbox Height="14" StretchDirection="DownOnly">
+                                                        <TextBlock Text="{Binding BuyText}" FontSize="10">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{StaticResource Dim}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Buy}" Value="Full">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Soft}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Buy}" Value="Eco">
+                                                                            <Setter Property="Foreground" Value="#6F7C8F" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Viewbox>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- スコアボード -->
+                        <Border Style="{StaticResource PanelBorder}" Margin="0,12,0,0" Padding="14,10,14,8">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,4">
+                                    <TextBlock DockPanel.Dock="Right" Text="他のプレイヤーは名前を出さずエージェントで表示" FontSize="11" Foreground="{StaticResource Dim}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="スコアボード" Style="{StaticResource StatsHeading}" />
+                                </DockPanel>
+                                <Grid Margin="8,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="80" />
+                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="32" />
+                                        <ColumnDefinition Width="32" />
+                                        <ColumnDefinition Width="32" />
+                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="42" />
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="32" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="エージェント" Style="{StaticResource BoardHead}" TextAlignment="Left" />
+                                    <TextBlock Grid.Column="1" Text="ACS ▾" Style="{StaticResource BoardHead}" Foreground="{StaticResource Text}"
+                                               ToolTip="平均戦闘スコア（この順に並べています）" />
+                                    <TextBlock Grid.Column="2" Text="K" Style="{StaticResource BoardHead}" />
+                                    <TextBlock Grid.Column="3" Text="D" Style="{StaticResource BoardHead}" />
+                                    <TextBlock Grid.Column="4" Text="A" Style="{StaticResource BoardHead}" />
+                                    <TextBlock Grid.Column="5" Text="+/−" Style="{StaticResource BoardHead}" />
+                                    <TextBlock Grid.Column="6" Text="ADR" Style="{StaticResource BoardHead}" ToolTip="1 ラウンドあたりのダメージ" />
+                                    <TextBlock Grid.Column="7" Text="HS%" Style="{StaticResource BoardHead}" ToolTip="当たった弾のうち頭の割合" />
+                                    <TextBlock Grid.Column="8" Text="KAST" Style="{StaticResource BoardHead}"
+                                               ToolTip="キル・アシスト・生存・トレード（倒されて 5 秒以内に味方がやり返した）のいずれかがあったラウンドの割合" />
+                                    <TextBlock Grid.Column="9" Text="FK" Style="{StaticResource BoardHead}" ToolTip="ラウンドの最初のキル" />
+                                </Grid>
+                                <TextBlock Text="{Binding AllyTitle}" FontSize="11" Foreground="{StaticResource Dim}" Margin="8,6,0,2" />
+                                <ItemsControl ItemsSource="{Binding Allies}" ItemTemplate="{StaticResource ScoreRowTemplate}" />
+                                <TextBlock Text="{Binding OpponentTitle}" FontSize="11" Foreground="{StaticResource Dim}" Margin="8,8,0,2" />
+                                <ItemsControl ItemsSource="{Binding Opponents}" ItemTemplate="{StaticResource ScoreRowTemplate}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
         <!-- 右：イベント -->
         <Border x:Name="RightPanel" Grid.Column="4" Style="{StaticResource PanelBorder}" Padding="10,14,6,10">
-            <DockPanel>
+            <Grid>
+            <DockPanel x:Name="EventsPane">
                 <StackPanel DockPanel.Dock="Top" Margin="6,0,4,0">
                     <TextBlock Text="イベント" Style="{StaticResource SectionTitle}" />
                     <WrapPanel Margin="0,10,0,0" DataContext="{Binding SelectedSession.Timeline}">
@@ -619,6 +1018,152 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
+
+            <!-- スタッツで選んだラウンドの詳細 -->
+            <DockPanel x:Name="RoundPane" Margin="6,0,4,0" Visibility="Collapsed" DataContext="{Binding Stats.SelectedRound}">
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                <Setter Property="Opacity" Value="0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <DockPanel DockPanel.Dock="Top">
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding SideText}" FontFamily="{StaticResource NumFont}" FontSize="12"
+                               Foreground="{StaticResource Dim}" VerticalAlignment="Bottom" />
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource SectionTitle}" />
+                </DockPanel>
+                <Border DockPanel.Dock="Top" Margin="0,10,0,0" Padding="11,8" CornerRadius="8" BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="{StaticResource LossSoft}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource LossLine}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Won}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource WinSoft}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource WinLine}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock TextWrapping="Wrap">
+                        <Run Text="{Binding ResultTitle, Mode=OneWay}" FontWeight="Bold">
+                            <Run.Style>
+                                <Style TargetType="Run">
+                                    <Setter Property="Foreground" Value="{StaticResource Death}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Won}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Kill}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Run.Style>
+                        </Run>
+                        <Run Text="  " /><Run Text="{Binding ResultDetail, Mode=OneWay}" FontSize="12" Foreground="{StaticResource Soft}" />
+                    </TextBlock>
+                </Border>
+
+                <Button DockPanel.Dock="Bottom" Style="{StaticResource PrimaryButton}" Margin="0,10,0,0" IsEnabled="{Binding CanPlay}"
+                        Command="{Binding DataContext.PlayRoundCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                        ToolTip="動画に切り替えて、このラウンドの戦闘開始の 3 秒前から再生します (Enter)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE768;" Margin="0,0,8,0" />
+                        <TextBlock FontWeight="SemiBold" VerticalAlignment="Center"><Run Text="{Binding Title, Mode=OneWay}" /><Run Text=" を再生" /></TextBlock>
+                    </StackPanel>
+                </Button>
+
+                <StackPanel DockPanel.Dock="Top" Margin="0,14,0,0">
+                    <TextBlock Text="自分" Style="{StaticResource DetailHeading}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                        </Grid.RowDefinitions>
+                        <Grid.Resources>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontSize" Value="13" />
+                                <Setter Property="Margin" Value="0,0,0,4" />
+                            </Style>
+                        </Grid.Resources>
+                        <TextBlock Text="キル / デス" />
+                        <TextBlock Grid.Column="1" Text="{Binding KillDeathText}" FontFamily="{StaticResource NumFont}" TextAlignment="Right" />
+                        <TextBlock Grid.Row="1" Text="ダメージ" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Damage}" FontFamily="{StaticResource NumFont}" TextAlignment="Right" />
+                        <TextBlock Grid.Row="2" Text="購入" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LoadoutText}" TextAlignment="Right" TextTrimming="CharacterEllipsis"
+                                   Margin="12,0,0,4" />
+                        <TextBlock Grid.Row="3" Text="使った / 残り" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding MoneyText}" FontFamily="{StaticResource NumFont}" TextAlignment="Right" />
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Top" Margin="0,10,0,0" Visibility="{Binding HasDamage, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Style="{StaticResource DetailHeading}">
+                        <Run Text="与えたダメージ" />
+                        <Run Text="（" FontWeight="Normal" /><Run Text="頭" FontWeight="Normal" Foreground="{StaticResource Spike}" /><Run Text=" · " FontWeight="Normal" /><Run
+                             Text="体" FontWeight="Normal" Foreground="{StaticResource Accent}" /><Run Text=" · 脚）" FontWeight="Normal" />
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding DamageRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:DamageRowViewModel">
+                                <Grid Margin="0,0,0,7" ToolTip="{Binding ToolTipText}" Background="Transparent">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="66" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="36" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Agent}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <Border Grid.Column="1" Height="8" CornerRadius="2" Background="{StaticResource Field}" VerticalAlignment="Center">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{Binding HeadWidth}" />
+                                                <ColumnDefinition Width="{Binding BodyWidth}" />
+                                                <ColumnDefinition Width="{Binding LegWidth}" />
+                                                <ColumnDefinition Width="{Binding RestWidth}" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Background="{StaticResource Spike}" />
+                                            <Border Grid.Column="1" Background="{StaticResource Accent}" />
+                                            <Border Grid.Column="2" Background="#3B5874" />
+                                        </Grid>
+                                    </Border>
+                                    <TextBlock Grid.Column="2" Text="{Binding Damage}" FontFamily="{StaticResource NumFont}" FontSize="12" TextAlignment="Right"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <TextBlock DockPanel.Dock="Top" Text="イベント（クリックで再生）" Style="{StaticResource DetailHeading}" Margin="0,8,0,4" />
+                <ListBox x:Name="RoundEventList" ItemsSource="{Binding Events}" PreviewMouseLeftButtonUp="OnRoundEventClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="vm:RoundEventItemViewModel">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="14" />
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Width="8" Height="8" HorizontalAlignment="Left" Fill="{Binding Type, Converter={StaticResource RoundEventBrush}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Style="{StaticResource Num}" FontSize="12" Foreground="{StaticResource Soft}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                    <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding Detail, Mode=OneWay}" Foreground="{StaticResource Dim}" />
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+            </Grid>
         </Border>
     </Grid>
 

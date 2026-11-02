@@ -28,7 +28,7 @@ public sealed partial class SessionItemViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasScore), nameof(StripEvents), nameof(Result), nameof(ResultText))]
+    [NotifyPropertyChangedFor(nameof(HasScore), nameof(StripEvents), nameof(Result), nameof(ResultText), nameof(OutcomeText))]
     private MatchTimeline? _timeline;
 
     partial void OnTimelineChanged(MatchTimeline? value) => _result = value?.Result ?? ReadResultFromMatchFile();
@@ -38,10 +38,8 @@ public sealed partial class SessionItemViewModel : ObservableObject
     /// <summary>勝敗。判定できなければ null。</summary>
     public MatchResult? Result => _result;
 
-    /// <summary>一覧でモード名の前に付ける「勝利 13-7 」。後ろの空白はモード名との区切り。</summary>
-    public string ResultText => Result is { } r
-        ? $"{r.Outcome switch { MatchOutcome.Win => "勝利", MatchOutcome.Loss => "敗北", _ => "引分" }} {r.MyScore}-{r.OpponentScore} "
-        : "";
+    /// <summary>一覧に出す「勝利 13-7」。判定できなければ空。</summary>
+    public string ResultText => Result is { } r ? $"{OutcomeText} {r.MyScore}-{r.OpponentScore}" : "";
 
     // 勝敗を記録する前に作った timeline.json には Result がないので match.json から読む
     private MatchResult? ReadResultFromMatchFile()
@@ -50,6 +48,21 @@ public sealed partial class SessionItemViewModel : ObservableObject
         try { return MatchTimelineBuilder.ReadResult(File.ReadAllText(Path.Combine(Session.Directory, MatchSession.MatchFile)), puuid); }
         catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException) { return null; }
     }
+
+    /// <summary>見出しに出す「勝利」「敗北」「引分」。</summary>
+    public string OutcomeText => Result?.Outcome switch
+    {
+        MatchOutcome.Win => "勝利",
+        MatchOutcome.Loss => "敗北",
+        MatchOutcome.Draw => "引分",
+        _ => "",
+    };
+
+    /// <summary>「+21 RR」。取得できていなければ空。</summary>
+    public string RankedRatingText => Session.RankedRatingEarned is { } rr ? $"{rr:+0;−0;±0} RR" : "";
+
+    /// <summary>RR の増減の符号（色分けに使う）。</summary>
+    public int RankedRatingSign => Math.Sign(Session.RankedRatingEarned ?? 0);
 
     public string MapName => DisplayNames.Map(Session.MapId);
     public string QueueName => DisplayNames.Queue(Session.QueueId);

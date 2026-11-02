@@ -15,6 +15,8 @@ internal static class Palette
     public static readonly Brush Death = Frozen(0xFF, 0x5D, 0x5D);
     public static readonly Brush Assist = Frozen(0x7F, 0xB2, 0xF0);
     public static readonly Brush Accent = Frozen(0x5C, 0xC8, 0xD7);
+    /// <summary>スパイクの設置・解除・爆破（App.xaml の Spike）。</summary>
+    public static readonly Brush Spike = Frozen(0xF2, 0xC4, 0x6B);
     /// <summary>タイムライン上のクリップの範囲（Accent を薄くしたもの）。</summary>
     public static readonly Brush ClipFill = Frozen(0x33, 0x5C, 0xC8, 0xD7);
     public static readonly Pen TooltipPen = FrozenPen(Frozen(0x3A, 0x4A, 0x5E), 1);

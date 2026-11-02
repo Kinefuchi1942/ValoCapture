@@ -38,6 +38,8 @@ public sealed class MatchSession
     /// 動画とイベントの時刻ずれの補正（ms）。試合詳細を取得したときにゲームのログから求め、求められなければ既定値のまま。手動で調整できる。
     /// </summary>
     public long OffsetMs { get; set; }
+    /// <summary>この試合での RR の増減（コンペティティブのみ）。取得できていなければ null。</summary>
+    public int? RankedRatingEarned { get; set; }
     public SessionStatus Status { get; set; }
     public string? Error { get; set; }
 
@@ -97,6 +99,14 @@ public sealed class MatchSession
         {
             return timeline;
         }
+    }
+
+    /// <summary>match.json からスコアボードとラウンドごとの成績を求める。試合詳細がまだなければ null。</summary>
+    public MatchStats? LoadStats()
+    {
+        if (Puuid is null || !HasMatchDetails) return null;
+        return MatchStatsBuilder.Build(
+            File.ReadAllText(Path.Combine(Directory, MatchFile)), Puuid, RecordStartedAt, RecordStoppedAt - RecordStartedAt, OffsetMs);
     }
 
     /// <summary>補正値を変えて match.json からタイムラインを作り直し、保存する。</summary>

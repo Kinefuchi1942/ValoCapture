@@ -65,6 +65,45 @@ public static class DisplayNames
         ["add6443a-41bd-e414-f6ad-e58d267f4e95"] = "Jett", // Wushu
     };
 
+    // 武器 ID（economy.weapon、finishingDamage.damageItem）。valorant-api.com の /v1/weapons から作成（表示は英語名）
+    private static readonly Dictionary<string, string> Weapons = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["63e6c2b6-4a8e-869c-3d4c-e38355226584"] = "Odin",
+        ["55d8a0f4-4274-ca67-fe2c-06ab45efdf58"] = "Ares",
+        ["9c82e19d-4575-0200-1a81-3eacf00cf872"] = "Vandal",
+        ["8db0a1bf-4a50-832a-4566-faaaa6d250ca"] = "Warden",
+        ["ae3de142-4d85-2547-dd26-4e90bed35cf7"] = "Bulldog",
+        ["ee8e8d15-496b-07ac-e5f6-8fae5d4c7b1a"] = "Phantom",
+        ["ec845bf4-4f79-ddda-a3da-0db3774b2794"] = "Judge",
+        ["910be174-449b-c412-ab22-d0873436b21b"] = "Bucky",
+        ["44d4e95c-4157-0037-81b2-17841bf2e8e3"] = "Frenzy",
+        ["29a0cfab-485b-f5d5-779a-b59f85e204a8"] = "Classic",
+        ["410b2e0b-4ceb-1321-1727-20858f7f3477"] = "Bandit",
+        ["1baa85b4-4c70-1284-64bb-6481dfc3bb4e"] = "Ghost",
+        ["e336c6b8-418d-9340-d77f-7a9e4cfe0702"] = "Sheriff",
+        ["42da8ccc-40d5-affc-beec-15aa47b42eda"] = "Shorty",
+        ["a03b24d3-4319-996d-0f8c-94bbfba1dfc7"] = "Operator",
+        ["4ade7faa-4cf1-8376-95ef-39884480959b"] = "Guardian",
+        ["5f0aaf7a-4289-3998-d5ff-eb9a5cf7ef5c"] = "Outlaw",
+        ["c4883e50-4494-202c-3ec3-6b8a9284f00b"] = "Marshal",
+        ["462080d1-4035-2937-7c09-27aa2a5c27a7"] = "Spectre",
+        ["f7e1b454-4ad4-1063-ec0a-159e56b58941"] = "Stinger",
+        ["2f59173c-4bed-b6c3-2191-dea9b58be9c7"] = "ナイフ",
+        // アビリティでのキルは damageItem に ID ではなくスロット名が入る
+        ["Ability1"] = "アビリティ",
+        ["Ability2"] = "アビリティ",
+        ["GrenadeAbility"] = "アビリティ",
+        ["Ultimate"] = "アルティメット",
+    };
+
+    // アーマー ID（economy.armor）。valorant-api.com の /v1/gear から作成
+    private static readonly Dictionary<string, string> Armors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["822bcab2-40a2-324e-c137-e09195ad7692"] = "ヘビーアーマー",
+        ["4dec83d5-4902-9ab3-bed6-a7a390761157"] = "ライトアーマー",
+        ["b1b9086d-41bd-a516-5d29-e3b34a6f1644"] = "回復シールド",
+    };
+
     public static string Map(string mapId)
     {
         var code = mapId.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
@@ -77,4 +116,12 @@ public static class DisplayNames
     /// <summary>エージェントの表示名。ID が不明（新しいエージェントなど）なら null。</summary>
     public static string? Agent(string? characterId) =>
         characterId is not null && Agents.TryGetValue(characterId, out var name) ? name : null;
+
+    /// <summary>武器（アビリティなら「アビリティ」）の表示名。空・不明なら null。</summary>
+    public static string? Weapon(string? weaponId) =>
+        weaponId is not null && Weapons.TryGetValue(weaponId, out var name) ? name : null;
+
+    /// <summary>アーマーの表示名。買っていない・不明なら null。</summary>
+    public static string? Armor(string? armorId) =>
+        armorId is not null && Armors.TryGetValue(armorId, out var name) ? name : null;
 }

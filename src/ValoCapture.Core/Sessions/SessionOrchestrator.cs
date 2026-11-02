@@ -15,6 +15,7 @@ public sealed class SessionOrchestrator
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly List<Task> _background = [];
     private MatchSession? _current;
+    private bool _rankedRatingBackfilled;
 
     public SessionOrchestrator(GameStateMonitor monitor, IScreenRecorder recorder, MatchTarget target, string outputRoot)
     {
@@ -65,6 +66,13 @@ public sealed class SessionOrchestrator
         await _gate.WaitAsync();
         try
         {
+            // 起動して最初にメニューに入ったら、RR をまだ取れていない試合をまとめて埋める
+            if (!_rankedRatingBackfilled && next.State == GameState.Menus)
+            {
+                _rankedRatingBackfilled = true;
+                Track(FillRankedRatingAsync(null));
+            }
+
             if (_current is null && next.State == GameState.InGame && Target.Matches(next))
                 await StartSessionAsync(next);
             else if (_current is not null && IsOutOfMatch(next.State))
@@ -184,6 +192,7 @@ public sealed class SessionOrchestrator
                 session.Status = SessionStatus.Ready;
                 Persist(session);
                 Write($"タイムライン作成: {timeline.MyKills}K / {timeline.MyDeaths}D / {timeline.MyAssists}A, イベント {timeline.Events.Count} 件 → {session.Directory}");
+                if (session.QueueId == QueueIds.Competitive) Track(FillRankedRatingAsync(session));
                 return;
             }
             catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
@@ -193,6 +202,56 @@ public sealed class SessionOrchestrator
         }
 
         Fail(session, "試合詳細を取得できませんでした（リトライ上限）");
+    }
+
+    /// <summary>RR の増減を取る間隔と回数（試合詳細より少し遅れて反映されることがある）。</summary>
+    public TimeSpan RankedRatingRetryInterval { get; init; } = TimeSpan.FromSeconds(30);
+    public int RankedRatingRetryCount { get; init; } = 5;
+
+    /// <summary>
+    /// 録画フォルダのコンペティティブの試合のうち、RR の増減をまだ取れていないものに記録する。
+    /// <paramref name="waitFor"/> を指定したら、その試合が取れるまで何回か試す。
+    /// </summary>
+    private async Task FillRankedRatingAsync(MatchSession? waitFor)
+    {
+        for (var attempt = 1; attempt <= (waitFor is null ? 1 : RankedRatingRetryCount); attempt++)
+        {
+            if (waitFor is not null) await Task.Delay(RankedRatingRetryInterval);
+
+            var missing = MatchSession.LoadAll(OutputRoot)
+                .Where(s => s is { QueueId: QueueIds.Competitive, Status: SessionStatus.Ready, RankedRatingEarned: null, MatchId: not null })
+                .ToList();
+            if (missing.Count == 0) return;
+
+            Dictionary<string, int> earned;
+            try
+            {
+                using var remote = CreateRemoteClient();
+                earned = RiotRemoteClient.ReadRankedRatingEarned(await remote.GetCompetitiveUpdatesJsonAsync());
+            }
+            catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException or JsonException)
+            {
+                Write($"RR の増減を取得できませんでした（{attempt} 回目）: {ex.Message}");
+                continue;
+            }
+
+            await _gate.WaitAsync();
+            try
+            {
+                foreach (var s in missing)
+                {
+                    if (!earned.TryGetValue(s.MatchId!, out var rr)) continue;
+                    s.RankedRatingEarned = rr;
+                    Persist(s);
+                    Write($"RR の増減: {rr:+0;-0;0} → {s.Directory}");
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+            if (waitFor?.MatchId is { } id && earned.ContainsKey(id)) return;
+        }
     }
 
     // ゲームのログは次にゲームを起動すると上書きされるので、録画の範囲のラウンドの行をセッションに残す

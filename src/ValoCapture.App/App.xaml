@@ -20,6 +20,12 @@
         <SolidColorBrush x:Key="Kill" Color="#6FD3A8" />
         <SolidColorBrush x:Key="Death" Color="#FF5D5D" />
         <SolidColorBrush x:Key="Assist" Color="#7FB2F0" />
+        <!-- スタッツ：スパイクのイベント、ラウンドの勝ち負けの下地 -->
+        <SolidColorBrush x:Key="Spike" Color="#F2C46B" />
+        <SolidColorBrush x:Key="WinSoft" Color="#2E6FD3A8" />
+        <SolidColorBrush x:Key="WinLine" Color="#596FD3A8" />
+        <SolidColorBrush x:Key="LossSoft" Color="#29FF5D5D" />
+        <SolidColorBrush x:Key="LossLine" Color="#59FF5D5D" />
 
         <!-- 数字は Bahnschrift（計器的）、日本語は Yu Gothic UI -->
         <FontFamily x:Key="NumFont">Bahnschrift, Segoe UI</FontFamily>

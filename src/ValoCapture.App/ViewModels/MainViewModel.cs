@@ -60,6 +60,14 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _showRoundStarts = true;
     [ObservableProperty] private string _offsetText = "";
 
+    // スタッツ（中央を動画からスコアボードなどに切り替える）
+    /// <summary>中央にスタッツを出しているか（false なら動画）。</summary>
+    [ObservableProperty] private bool _isStatsView;
+    /// <summary>選んでいる試合のスタッツ。試合詳細がなければ null。スタッツを出しているときだけ読む。</summary>
+    [ObservableProperty] private StatsViewModel? _stats;
+    /// <summary>スタッツを出せないときの理由。</summary>
+    [ObservableProperty] private string _statsMessage = "";
+
     /// <summary>ラウンド制のモード（ランク等）か。デスマッチ等ではラウンドの絞り込みを出さない。</summary>
     [ObservableProperty] private bool _isRoundBased;
 
@@ -136,7 +144,11 @@ public sealed partial class MainViewModel : ObservableObject
         RequestDeleteCommand.NotifyCanExecuteChanged();
         ClipStart = ClipEnd = null;
         RefreshEvents();
+        // 別の試合なので、選んでいたラウンドは引き継がない
+        Stats = null;
+        RefreshStats();
     }
+    partial void OnIsStatsViewChanged(bool value) => RefreshStats();
     partial void OnShowKillsChanged(bool value) => RefreshEvents();
     partial void OnShowDeathsChanged(bool value) => RefreshEvents();
     partial void OnShowAssistsChanged(bool value) => RefreshEvents();
@@ -174,7 +186,11 @@ public sealed partial class MainViewModel : ObservableObject
         if (SelectedSession is null || !Sessions.Contains(SelectedSession))
             SelectedSession = Sessions.FirstOrDefault();
         else
+        {
             RefreshEvents();
+            // 試合詳細を取り終えたなどで、スタッツを出せるようになったかもしれない
+            if (Stats is null) RefreshStats();
+        }
         // 録画が終わるなどして削除できるようになったかもしれない
         RequestDeleteCommand.NotifyCanExecuteChanged();
     }
@@ -349,6 +365,62 @@ public sealed partial class MainViewModel : ObservableObject
         SeekRequested?.Invoke(t < TimeSpan.Zero ? TimeSpan.Zero : t);
     }
 
+    /// <summary>動画に切り替えて、その位置の少し前から再生する（スタッツのラウンド・イベントから）。</summary>
+    [RelayCommand]
+    private void PlayAt(TimeSpan? videoTime)
+    {
+        if (videoTime is not { } time) return;
+        IsStatsView = false;
+        var t = time - PreRoll;
+        SeekRequested?.Invoke(t < TimeSpan.Zero ? TimeSpan.Zero : t);
+    }
+
+    [RelayCommand]
+    private void PlayRound(RoundItemViewModel? round) => PlayAt(round?.StartVideoTime);
+
+    [RelayCommand]
+    private void PlayRoundEvent(RoundEventItemViewModel? item) => PlayAt(item?.VideoTime);
+
+    /// <summary>
+    /// 選んでいる試合の match.json からスタッツを作る。動画を出しているときは読まない
+    /// （スタッツに切り替えたときに読む）。選んでいたラウンドは番号で引き継ぐ。
+    /// </summary>
+    private void RefreshStats()
+    {
+        if (!IsStatsView)
+        {
+            Stats = null;
+            return;
+        }
+
+        var selectedRound = Stats?.SelectedRound?.Number;
+        Stats = null;
+        if (SelectedSession is not { } item)
+        {
+            StatsMessage = "録画がありません";
+            return;
+        }
+        try
+        {
+            var stats = item.Session.LoadStats();
+            if (stats is null)
+            {
+                StatsMessage = item.Session.Status == SessionStatus.Failed
+                    ? "試合詳細を取得できなかったため、スタッツはありません"
+                    : "試合が終わって試合詳細を取得すると、スタッツが出ます";
+                return;
+            }
+            Stats = new StatsViewModel(stats, item.Result);
+            if (Stats.Rounds.FirstOrDefault(r => r.Number == selectedRound) is { } round) Stats.SelectedRound = round;
+            StatsMessage = "";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException
+                                       or KeyNotFoundException or InvalidOperationException)
+        {
+            StatsMessage = $"スタッツを読めませんでした: {ex.Message}";
+        }
+    }
+
     /// <summary>時刻補正を変えてタイムラインを作り直す（ms 単位の差分）。</summary>
     [RelayCommand(CanExecute = nameof(CanAdjustOffset))]
     private void AdjustOffset(string deltaMs)
@@ -356,6 +428,7 @@ public sealed partial class MainViewModel : ObservableObject
         var item = SelectedSession!;
         item.Timeline = item.Session.RebuildTimeline(item.Session.OffsetMs + long.Parse(deltaMs));
         RefreshEvents();
+        RefreshStats();
     }
 
     private bool CanAdjustOffset(string _) => SelectedSession?.Session.HasMatchDetails == true;

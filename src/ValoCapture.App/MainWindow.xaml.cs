@@ -53,6 +53,31 @@ public partial class MainWindow : Window
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.SelectedSession)) OpenSelectedVideo();
+        else if (e.PropertyName == nameof(MainViewModel.IsStatsView)) ApplyStatsView();
+    }
+
+    /// <summary>中央を動画とスタッツで切り替え、右の列もイベント一覧とラウンドの詳細で切り替える。</summary>
+    private void ApplyStatsView()
+    {
+        var stats = _vm.IsStatsView;
+        if (stats) Pause();
+        var video = stats ? Visibility.Collapsed : Visibility.Visible;
+        var other = stats ? Visibility.Visible : Visibility.Collapsed;
+        VideoFrame.Visibility = TimelinePanel.Visibility = Controls.Visibility = EventsPane.Visibility = HeaderScore.Visibility = video;
+        StatsPanel.Visibility = RoundPane.Visibility = HeaderResult.Visibility = other;
+        VideoTab.IsChecked = !stats;
+        StatsTab.IsChecked = stats;
+    }
+
+    private void OnViewTabChecked(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not null) _vm.IsStatsView = sender == StatsTab;
+    }
+
+    private void OnRoundEventClick(object sender, MouseButtonEventArgs e)
+    {
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is RoundEventItemViewModel item)
+            _vm.PlayRoundEventCommand.Execute(item);
     }
 
     private void OpenSelectedVideo()
@@ -358,8 +383,25 @@ public partial class MainWindow : Window
             return;
         }
 
+        // スタッツを出している間は、ラウンドの選択と再生・削除・切り替えだけ
+        if (_vm.IsStatsView)
+        {
+            switch (e.Key)
+            {
+                case Key.Left: _vm.Stats?.MoveRound(-1); break;
+                case Key.Right: _vm.Stats?.MoveRound(1); break;
+                case Key.Enter: _vm.PlayRoundCommand.Execute(_vm.Stats?.SelectedRound); break;
+                case Key.S or Key.Escape: _vm.IsStatsView = false; break;
+                case Key.Delete: _vm.RequestDeleteCommand.Execute(null); break;
+                default: return;
+            }
+            e.Handled = true;
+            return;
+        }
+
         switch (e.Key)
         {
+            case Key.S when !_isFullscreen: _vm.IsStatsView = true; break;
             case Key.Space: TogglePlay(); break;
             case Key.Left: Seek(Player.Position - TimeSpan.FromSeconds(5)); break;
             case Key.Right: Seek(Player.Position + TimeSpan.FromSeconds(5)); break;

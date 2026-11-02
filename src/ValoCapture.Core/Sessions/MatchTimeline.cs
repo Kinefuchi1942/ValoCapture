@@ -80,14 +80,7 @@ public static class MatchTimelineBuilder
         var gameStart = info.GetProperty("gameStartMillis").GetInt64();
         var origin = Origin(root);
 
-        long? ToVideoTime(long gameTime)
-        {
-            if (recordStartedAt is null) return null;
-            var t = origin + gameTime - recordStartedAt.Value.ToUnixTimeMilliseconds() + offsetMs;
-            if (t < 0) return null;
-            if (recordLength is { } len && t > (long)len.TotalMilliseconds) return null;
-            return t;
-        }
+        long? ToVideoTime(long gameTime) => VideoTime(origin, gameTime, recordStartedAt, recordLength, offsetMs);
 
         var kills = EnumerateKills(root).ToList();
         var agents = ReadAgents(root);
@@ -173,11 +166,21 @@ public static class MatchTimelineBuilder
         return median + LogToKillFeedMs;
     }
 
-    private static long Origin(JsonElement root) =>
+    /// <summary>gameTime を動画上の位置にする。録画範囲外なら null。</summary>
+    internal static long? VideoTime(long origin, long gameTime, DateTimeOffset? recordStartedAt, TimeSpan? recordLength, long offsetMs)
+    {
+        if (recordStartedAt is null) return null;
+        var t = origin + gameTime - recordStartedAt.Value.ToUnixTimeMilliseconds() + offsetMs;
+        if (t < 0) return null;
+        if (recordLength is { } len && t > (long)len.TotalMilliseconds) return null;
+        return t;
+    }
+
+    internal static long Origin(JsonElement root) =>
         FirstJoinMillis(root) is { } join ? join - JoinLeadMs : root.GetProperty("matchInfo").GetProperty("gameStartMillis").GetInt64();
 
     // ラウンド開始時刻 = そのラウンド内のキルの gameTime − roundTime（戦闘フェーズの開始）
-    private static IEnumerable<(int Round, long Start)> RoundStarts(List<Kill> kills) =>
+    internal static IEnumerable<(int Round, long Start)> RoundStarts(List<Kill> kills) =>
         kills.GroupBy(k => k.Round).Select(g => (g.Key, g.First().GameTime - g.First().RoundTime));
 
     // 全プレイヤーの participationPeriods[].sessionStartTime の最小値（自分の参加が遅れたり再接続したりしても影響しない）
@@ -202,7 +205,7 @@ public static class MatchTimelineBuilder
     }
 
     // players[].subject（puuid）→ players[].characterId
-    private static Dictionary<string, string> ReadAgents(JsonElement root)
+    internal static Dictionary<string, string> ReadAgents(JsonElement root)
     {
         var agents = new Dictionary<string, string>();
         if (!root.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return agents;
@@ -255,10 +258,10 @@ public static class MatchTimelineBuilder
         return new MatchResult(outcome, Score(mine), others.Count > 0 ? others.Max(Score) : 0);
     }
 
-    private sealed record Kill(int Round, long GameTime, long RoundTime, string Killer, string Victim, string[] Assistants, string? DamageItem);
+    internal sealed record Kill(int Round, long GameTime, long RoundTime, string Killer, string Victim, string[] Assistants, string? DamageItem);
 
     // デスマッチ等はトップレベルの kills、ラウンド制のモードは roundResults[].playerStats[].kills に入っている
-    private static IEnumerable<Kill> EnumerateKills(JsonElement root)
+    internal static IEnumerable<Kill> EnumerateKills(JsonElement root)
     {
         if (root.TryGetProperty("kills", out var top) && top.ValueKind == JsonValueKind.Array && top.GetArrayLength() > 0)
         {
