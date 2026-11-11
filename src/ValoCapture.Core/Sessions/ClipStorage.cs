@@ -14,12 +14,12 @@ public static class ClipStorage
 
     /// <summary>
     /// 新しいクリップのパス。「アセント_20261031-2130_0123-0141.mp4」（マップ・試合の日時・動画内の範囲）。
-    /// 同じ名前があれば「_2」「_3」… を付ける。
+    /// 同じ名前があれば「_2」「_3」… を付ける。<paramref name="suffix"/> は範囲のあとに付ける（Discord 用は「_discord」）。
     /// </summary>
-    public static string NewPath(string recordingsRoot, MatchSession session, TimeSpan start, TimeSpan end)
+    public static string NewPath(string recordingsRoot, MatchSession session, TimeSpan start, TimeSpan end, string suffix = "")
     {
         var map = string.Concat(DisplayNames.Map(session.MapId).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-        var name = $"{map}_{session.DetectedAt.ToLocalTime():yyyyMMdd-HHmm}_{Time(start)}-{Time(end)}";
+        var name = $"{map}_{session.DetectedAt.ToLocalTime():yyyyMMdd-HHmm}_{Time(start)}-{Time(end)}{suffix}";
         var directory = GetDirectory(recordingsRoot);
 
         var path = Path.Combine(directory, name + ".mp4");

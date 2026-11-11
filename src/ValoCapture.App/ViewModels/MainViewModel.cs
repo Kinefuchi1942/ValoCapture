@@ -110,6 +110,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>通知の右のボタン（「元に戻す」など）。空なら出さない。</summary>
     [ObservableProperty] private string _toastActionText = "";
     private Action? _toastAction;
+    /// <summary>通知の 2 つ目のボタン（クリップの「表示」など）。空なら出さない。</summary>
+    [ObservableProperty] private string _toastSecondaryText = "";
+    private Action? _toastSecondaryAction;
 
     /// <summary>削除した直後の試合。通知を出している間は「元に戻す」で戻せるよう、ごみ箱へ移すのを待つ。</summary>
     private SessionItemViewModel? _pendingDelete;
@@ -121,15 +124,24 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>クリップの範囲（動画内の時刻）。I / O キーかタイムラインの下のボタンで決める。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ClipRangeText))]
-    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(ClearClipCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(SaveDiscordClipCommand), nameof(ClearClipCommand))]
     private TimeSpan? _clipStart;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ClipRangeText))]
-    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(ClearClipCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(SaveDiscordClipCommand), nameof(ClearClipCommand))]
     private TimeSpan? _clipEnd;
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(SaveEventClipCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveClipCommand), nameof(SaveEventClipCommand), nameof(SaveDiscordClipCommand), nameof(SaveEventDiscordClipCommand))]
     private bool _isSavingClip;
+
+    /// <summary>Discord 用に書き出すときのサイズの上限（MB）。設定から App が入れる。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DiscordClipToolTip))]
+    private int _discordUploadLimitMb = 20;
+
+    public string DiscordClipToolTip =>
+        $"範囲を {DiscordUploadLimitMb} MB 以下に縮めて clips に保存し、クリップボードにコピーします。Discord のメッセージ欄で Ctrl+V を押すと貼り付けられます" +
+        $"（{DiscordEncodePlan.MaxDuration(DiscordEncodePlan.LimitBytes(DiscordUploadLimitMb)).TotalSeconds:0} 秒まで。上限は設定で変えられます）";
 
     /// <summary>「01:23 – 01:41（18 秒）」。決めていない側は「--:--」。</summary>
     public string ClipRangeText =>
@@ -258,13 +270,22 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ShowToast(string text, string actionText = "", Action? action = null)
+    private void ShowToast(string text, string actionText = "", Action? action = null, string secondaryText = "", Action? secondaryAction = null)
     {
         ToastText = text;
         ToastActionText = action is null ? "" : actionText;
         _toastAction = action;
+        ToastSecondaryText = secondaryAction is null ? "" : secondaryText;
+        _toastSecondaryAction = secondaryAction;
         _toastTimer.Stop();
         _toastTimer.Start();
+    }
+
+    /// <summary>書き出し中など、終わるまで出しておく通知（ボタンなし）。</summary>
+    private void ShowProgressToast(string text)
+    {
+        ShowToast(text);
+        _toastTimer.Stop();
     }
 
     private void HideToast()
@@ -273,10 +294,15 @@ public sealed partial class MainViewModel : ObservableObject
         ToastText = "";
         ToastActionText = "";
         _toastAction = null;
+        ToastSecondaryText = "";
+        _toastSecondaryAction = null;
     }
 
     [RelayCommand]
     private void ToastAction() => _toastAction?.Invoke();
+
+    [RelayCommand]
+    private void ToastSecondaryAction() => _toastSecondaryAction?.Invoke();
 
     [RelayCommand]
     private void OpenInExplorer()
@@ -322,6 +348,79 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool CanSaveEventClip(EventItemViewModel? _) => !IsSavingClip;
 
+    [RelayCommand(CanExecute = nameof(CanSaveClip))]
+    private Task SaveDiscordClip() => SaveDiscordClipAsync(ClipStart!.Value, ClipEnd!.Value);
+
+    [RelayCommand(CanExecute = nameof(CanSaveEventClip))]
+    private Task SaveEventDiscordClip(EventItemViewModel? item) =>
+        item is null ? Task.CompletedTask : SaveDiscordClipAsync(item.VideoTime - EventClipBefore, item.VideoTime + EventClipAfter);
+
+    /// <summary>
+    /// 選んでいる試合の動画から範囲を Discord のアップロード上限に収まるよう縮めて書き出し、クリップボードにコピーする。
+    /// </summary>
+    private async Task SaveDiscordClipAsync(TimeSpan start, TimeSpan end)
+    {
+        if (IsSavingClip || SelectedSession is not { HasVideo: true } item) return;
+        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
+
+        IsSavingClip = true;
+        await CommitPendingDeleteAsync();
+        const string Progress = "Discord 用に書き出しています…";
+        ShowProgressToast(Progress);
+
+        var path = ClipStorage.NewPath(RecordingsRoot, item.Session, start, end, "_discord");
+        var limit = DiscordEncodePlan.LimitBytes(DiscordUploadLimitMb);
+        try
+        {
+            var progress = new Progress<double>(p => { if (IsSavingClip) ToastText = $"{Progress} {p:0%}"; });
+            var size = await DiscordClipExporter.ExportAsync(item.VideoPath, path, start, end, limit, progress);
+            ClipSaved?.Invoke(path, null);
+            var copied = CopyToClipboard(path);
+            ShowToast(copied
+                    ? $"Discord 用に保存してコピーしました（{(end - start).TotalSeconds:0} 秒・{Megabytes(size)}）。Discord で Ctrl+V で貼り付けられます"
+                    : $"Discord 用に保存しました（{Megabytes(size)}）。クリップボードにコピーできませんでした",
+                copied ? "" : "コピー", copied ? null : () => CopyClipToClipboard(path), "表示", () => ShowInExplorer(path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DiscordClipExporter.TooLongException
+                                       or System.Runtime.InteropServices.COMException)
+        {
+            try { File.Delete(path); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            ClipSaved?.Invoke(path, ex);
+            ShowToast(ex is DiscordClipExporter.TooLongException tooLong
+                ? $"{DiscordUploadLimitMb} MB に収めるには長すぎます（{tooLong.Max.TotalSeconds:0} 秒まで）。範囲を短くしてください"
+                : $"Discord 用に書き出せませんでした: {ex.Message}");
+        }
+        finally
+        {
+            IsSavingClip = false;
+        }
+    }
+
+    private void CopyClipToClipboard(string path)
+    {
+        if (CopyToClipboard(path))
+            ShowToast("コピーしました。Discord のメッセージ欄で Ctrl+V を押すと貼り付けられます", "表示", () => ShowInExplorer(path));
+        else
+            ShowToast("クリップボードにコピーできませんでした。もう一度試してください", "コピー", () => CopyClipToClipboard(path));
+    }
+
+    /// <summary>ファイルをエクスプローラーでコピーしたときと同じ形でクリップボードに置く（Discord などに Ctrl+V で貼れる）。</summary>
+    private static bool CopyToClipboard(string path)
+    {
+        try
+        {
+            System.Windows.Clipboard.SetFileDropList([path]);
+            return true;
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // 他のアプリがクリップボードを開いている
+            return false;
+        }
+    }
+
+    private static string Megabytes(long bytes) => $"{bytes / 1_000_000.0:0.0} MB";
+
     /// <summary>選んでいる試合の動画から範囲を切り出し、録画フォルダの clips に書く。</summary>
     private async Task SaveClipAsync(TimeSpan start, TimeSpan end)
     {
@@ -342,7 +441,8 @@ public sealed partial class MainViewModel : ObservableObject
                 return Mp4Remuxer.Clip(item.VideoPath, path, start, end);
             });
             ClipSaved?.Invoke(path, null);
-            ShowToast($"クリップを保存しました（{(range.End - range.Start).TotalSeconds:0} 秒）", "表示", () => ShowInExplorer(path));
+            ShowToast($"クリップを保存しました（{(range.End - range.Start).TotalSeconds:0} 秒・{Megabytes(new FileInfo(path).Length)}）",
+                "コピー", () => CopyClipToClipboard(path), "表示", () => ShowInExplorer(path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {

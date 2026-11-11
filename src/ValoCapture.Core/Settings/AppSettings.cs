@@ -39,6 +39,9 @@ public sealed class AppSettings
     public int StorageLimitGb { get; set; }
     public long DefaultOffsetMs { get; set; } = SessionOrchestrator.CalibratedOffsetMs;
 
+    /// <summary>クリップを Discord 用に書き出すときのサイズの上限（MB）。無料は 20、Nitro Basic は 50、Nitro は 1000。</summary>
+    public int DiscordUploadLimitMb { get; set; } = 20;
+
     /// <summary>ビューアの再生音量（0〜1）。</summary>
     public double Volume { get; set; } = 0.8;
 

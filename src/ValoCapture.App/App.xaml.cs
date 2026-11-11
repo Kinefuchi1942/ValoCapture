@@ -70,7 +70,7 @@ public partial class App : Application
         _settings.LastRunVersion = AppVersion;
         _settings.Save(); // 初回起動時に既定値のファイルを作っておく（手で編集できるように）
 
-        _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume);
+        _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume) { DiscordUploadLimitMb = DiscordLimitMb() };
         _vm.PropertyChanged += OnViewModelPropertyChanged;
         _vm.SettingsRequested += OpenSettings;
         _vm.ApplyUpdateRequested += () => _ = ApplyUpdateAsync();
@@ -300,6 +300,9 @@ public partial class App : Application
         }
     }
 
+    // 設定ファイルを手で書き換えて 0 以下にしていても、無料の上限で書き出す
+    private int DiscordLimitMb() => _settings.DiscordUploadLimitMb > 0 ? _settings.DiscordUploadLimitMb : 20;
+
     private void OpenSettings()
     {
         if (_settingsWindow is not null)
@@ -320,6 +323,7 @@ public partial class App : Application
         _host!.ApplySettings(_settings);
         // 一覧の読み直しと保存先の反映（OnViewModelPropertyChanged）
         _vm!.RecordingsRoot = _settings.RecordingsRoot;
+        _vm.DiscordUploadLimitMb = DiscordLimitMb();
         UpdateStatus();
         WriteLog($"設定を変更: 録画先={_settings.RecordingsRoot} 対象={string.Join(",", _settings.TargetQueues)} 出力={_settings.OutputDeviceId ?? "既定"} " +
                  $"マイク={(_settings.CaptureMicrophone ? _settings.InputDeviceId ?? "既定" : "なし")} 上限={_settings.StorageLimitGb}GB");

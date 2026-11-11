@@ -14,7 +14,9 @@
     <!-- 更新パッケージのバージョンと exe のプロパティに出る。配布し直すたびに上げる -->
     <Version>1.5.0</Version>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Discord 用のクリップの書き出しに Windows.Media.Transcoding（WinRT）を使うため、Windows 10 の SDK を参照する -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <PlatformTarget>x64</PlatformTarget>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

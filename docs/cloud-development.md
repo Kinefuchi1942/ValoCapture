@@ -24,7 +24,7 @@ ValoCapture は Windows 専用のアプリ（WPF / WinForms / ScreenRecorderLib�
 | `src/ValoCapture.Core` | net8.0 | ○ |
 | `tests/ValoCapture.Core.Tests` | net8.0 | ○ |
 | `src/ValoCapture.Recording` | net8.0-windows | × |
-| `src/ValoCapture.App` | net8.0-windows | × |
+| `src/ValoCapture.App` | net8.0-windows10.0.19041.0 | × |
 | `src/ValoCapture.Probe` | net8.0-windows | × |
 
 Windows 専用プロジェクトのコードもクラウドで書き換えられるが、コンパイルが通るかは手元で確かめるまで分からない。ロジックはなるべく `ValoCapture.Core` に置き、テストで確認できる形にする。

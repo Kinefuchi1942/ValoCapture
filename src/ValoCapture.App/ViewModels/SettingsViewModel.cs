@@ -69,6 +69,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _recordingsRoot = settings.RecordingsRoot;
         _limitStorage = settings.StorageLimitGb > 0;
         _storageLimitGbText = (settings.StorageLimitGb > 0 ? settings.StorageLimitGb : DefaultLimitGb).ToString();
+        DiscordLimits = BuildNumbers([20, 50, 1000], settings.DiscordUploadLimitMb, DiscordLimitName);
+        _selectedDiscordLimit = DiscordLimits.First(o => o.Value == settings.DiscordUploadLimitMb);
         UpdateUsage();
         UpdateSizeEstimate();
     }
@@ -86,6 +88,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<ResolutionOption> Resolutions { get; }
     public IReadOnlyList<NumberOption> Framerates { get; }
     public IReadOnlyList<NumberOption> Bitrates { get; }
+    public IReadOnlyList<NumberOption> DiscordLimits { get; }
+    [ObservableProperty] private NumberOption _selectedDiscordLimit;
+
+    private static string DiscordLimitName(int mb) => mb switch
+    {
+        20 => "20 MB（無料）",
+        50 => "50 MB（Nitro Basic）",
+        1000 => "1 GB（Nitro）",
+        _ => $"{mb} MB",
+    };
 
     /// <summary>Windows へのサインイン時に自動起動するか（設定ファイルではなくレジストリに保存する）。</summary>
     [ObservableProperty] private bool _launchAtStartup;
@@ -159,6 +171,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.CaptureMicrophone = CaptureMicrophone;
         settings.RecordingsRoot = RecordingsRoot;
         settings.StorageLimitGb = LimitStorage ? limitGb : 0;
+        settings.DiscordUploadLimitMb = SelectedDiscordLimit.Value;
         settings.CheckForUpdates = CheckForUpdates;
         Error = "";
         return true;

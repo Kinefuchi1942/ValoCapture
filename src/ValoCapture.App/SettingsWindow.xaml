@@ -141,6 +141,12 @@
                         <TextBlock Style="{StaticResource Hint}"
                                    Text="合計が上限を超えると、古い試合から自動的に削除します。ブックマーク（☆）した試合は削除しません。" />
                         <TextBlock Style="{StaticResource Hint}" Text="{Binding UsageText}" FontFamily="{StaticResource UiFont}" />
+
+                        <TextBlock Text="Discord 用のクリップのサイズの上限" Style="{StaticResource Label}" Margin="0,18,0,6" />
+                        <ComboBox ItemsSource="{Binding DiscordLimits}" SelectedItem="{Binding SelectedDiscordLimit}" DisplayMemberPath="Name"
+                                  HorizontalAlignment="Left" MinWidth="200" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="ビューアの「Discord 用」で、クリップをこのサイズに収まるよう縮めて書き出します。Discord のプランのアップロード上限に合わせてください。" />
                     </StackPanel>
                 </Border>
 

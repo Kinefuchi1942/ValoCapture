@@ -4,7 +4,7 @@ setlocal
 
 rem ダブルクリックで ValoCapture を起動する。ソースが更新されていればビルドしてから起動する
 cd /d "%~dp0"
-set "EXE=%~dp0src\ValoCapture.App\bin\Release\net8.0-windows\ValoCapture.App.exe"
+set "EXE=%~dp0src\ValoCapture.App\bin\Release\net8.0-windows10.0.19041.0\ValoCapture.App.exe"
 
 rem 起動中は exe がロックされてビルドできないので、そのまま起動する（二重起動はアプリ側で通知される）
 tasklist /fi "imagename eq ValoCapture.App.exe" | find /i "ValoCapture.App.exe" >nul

@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | `src/ValoCapture.Core` | net8.0 | ゲーム状態の検知、Riot API クライアント、試合セッション・タイムライン、録画の保存管理、設定 |
 | `src/ValoCapture.Recording` | net8.0-windows | ScreenRecorderLib による録画、ゲームウィンドウ・音声デバイスの取得 |
-| `src/ValoCapture.App` | net8.0-windows | WPF のアプリ本体（メイン画面・設定画面・タスクトレイ） |
+| `src/ValoCapture.App` | net8.0-windows10.0.19041.0 | WPF のアプリ本体（メイン画面・設定画面・タスクトレイ） |
 | `src/ValoCapture.Probe` | net8.0-windows | 状態検知・録画を手元で確かめるコンソールツール（使い方は `Program.cs` 冒頭） |
 | `tests/ValoCapture.Core.Tests` | net8.0 | `ValoCapture.Core` の単体テスト |
 

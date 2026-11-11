@@ -618,6 +618,8 @@
                             <Button Style="{StaticResource SmallButton}" Content="クリップを保存" FontSize="12" Margin="10,0,0,0"
                                     Foreground="{StaticResource Accent}" FontWeight="SemiBold" Command="{Binding SaveClipCommand}"
                                     ToolTip="範囲を録画フォルダの clips に保存します。再エンコードしないので、始まりは直前のキーフレームからになります" />
+                            <Button Style="{StaticResource SmallButton}" Content="Discord 用" FontSize="12" Margin="4,0,0,0"
+                                    Command="{Binding SaveDiscordClipCommand}" ToolTip="{Binding DiscordClipToolTip}" />
                             <Button Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding ClearClipCommand}" ToolTip="範囲を消す">
                                 <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="10" />
                             </Button>
@@ -954,6 +956,12 @@
                                     <TextBlock Style="{StaticResource Glyph}" Text="&#xE8C6;" FontSize="13" />
                                 </MenuItem.Icon>
                             </MenuItem>
+                            <MenuItem Header="前後を Discord 用に保存してコピー" Command="{Binding SaveEventDiscordClipCommand}"
+                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                <MenuItem.Icon>
+                                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE8C8;" FontSize="13" />
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </ContextMenu>
                     </ListBox.ContextMenu>
                     <ListBox.ItemTemplate>
@@ -1286,6 +1294,18 @@
                     <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ToastActionText}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Content="{Binding ToastSecondaryText}" Command="{Binding ToastSecondaryActionCommand}" Foreground="{StaticResource Soft}"
+                    BorderBrush="Transparent" Background="Transparent" Padding="8,0">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ToastSecondaryText}" Value="">
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
                         </Style.Triggers>
