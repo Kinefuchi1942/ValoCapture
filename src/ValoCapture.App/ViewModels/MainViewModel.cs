@@ -75,6 +75,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private double _volume;
     [ObservableProperty] private bool _isMuted;
 
+    /// <summary>左（試合一覧）・右（イベント）のペインを折りたたんでいるか。</summary>
+    [ObservableProperty] private bool _isLeftPaneCollapsed;
+    [ObservableProperty] private bool _isRightPaneCollapsed;
+
     // 録画の状態（左上のカード）
     [ObservableProperty] private string _statusTitle = "";
     [ObservableProperty] private string _statusTime = "";

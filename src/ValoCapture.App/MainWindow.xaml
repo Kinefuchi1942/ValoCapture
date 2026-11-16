@@ -493,6 +493,15 @@
 
             <!-- 見出し：マップ・モード・日時とスコア -->
             <DockPanel x:Name="Header" Margin="2,0,2,10" DataContext="{Binding SelectedSession}">
+                <!-- 左右のペインの折りたたみ -->
+                <Button x:Name="LeftPaneButton" DockPanel.Dock="Left" Style="{StaticResource SmallButton}" Height="32" MinWidth="32"
+                        VerticalAlignment="Center" Margin="0,0,12,0" Click="OnToggleLeftPane">
+                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE90C;" />
+                </Button>
+                <Button x:Name="RightPaneButton" DockPanel.Dock="Right" Style="{StaticResource SmallButton}" Height="32" MinWidth="32"
+                        VerticalAlignment="Center" Margin="12,0,0,0" Click="OnToggleRightPane">
+                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE90D;" />
+                </Button>
                 <!-- スタッツを出しているときは K/D/A の代わりに勝敗とスコア -->
                 <StackPanel x:Name="HeaderResult" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom" Visibility="Collapsed">
                     <TextBlock Text="{Binding OutcomeText}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0">

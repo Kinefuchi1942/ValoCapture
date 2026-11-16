@@ -45,6 +45,10 @@ public sealed class AppSettings
     /// <summary>ビューアの再生音量（0〜1）。</summary>
     public double Volume { get; set; } = 0.8;
 
+    /// <summary>ビューアの左（試合一覧）・右（イベント）のペインを折りたたんでいるか。</summary>
+    public bool LeftPaneCollapsed { get; set; }
+    public bool RightPaneCollapsed { get; set; }
+
     /// <summary>起動時と 1 日 1 回、新しいバージョンを確認してダウンロードしておくか（適用はユーザーの操作で行う）。</summary>
     public bool CheckForUpdates { get; set; } = true;
 

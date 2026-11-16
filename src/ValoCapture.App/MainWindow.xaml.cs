@@ -47,6 +47,7 @@ public partial class MainWindow : Window
         _positionTimer.Start();
         _scrubTimer.Tick += (_, _) => FlushScrub();
 
+        ApplyPaneLayout();
         OpenSelectedVideo();
     }
 
@@ -54,6 +55,25 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.SelectedSession)) OpenSelectedVideo();
         else if (e.PropertyName == nameof(MainViewModel.IsStatsView)) ApplyStatsView();
+        else if (e.PropertyName is nameof(MainViewModel.IsLeftPaneCollapsed) or nameof(MainViewModel.IsRightPaneCollapsed)) ApplyPaneLayout();
+    }
+
+    private void OnToggleLeftPane(object sender, RoutedEventArgs e) => _vm.IsLeftPaneCollapsed = !_vm.IsLeftPaneCollapsed;
+    private void OnToggleRightPane(object sender, RoutedEventArgs e) => _vm.IsRightPaneCollapsed = !_vm.IsRightPaneCollapsed;
+
+    /// <summary>左右のペインの表示と列の幅を、全画面かどうかと折りたたみの状態に合わせる。</summary>
+    private void ApplyPaneLayout()
+    {
+        var showLeft = !_isFullscreen && !_vm.IsLeftPaneCollapsed;
+        var showRight = !_isFullscreen && !_vm.IsRightPaneCollapsed;
+        LeftPanel.Visibility = showLeft ? Visibility.Visible : Visibility.Collapsed;
+        RightPanel.Visibility = showRight ? Visibility.Visible : Visibility.Collapsed;
+        LeftColumn.Width = new GridLength(showLeft ? 236 : 0);
+        RightColumn.Width = new GridLength(showRight ? 272 : 0);
+        LeftGap.Width = new GridLength(showLeft ? 16 : 0);
+        RightGap.Width = new GridLength(showRight ? 16 : 0);
+        LeftPaneButton.ToolTip = _vm.IsLeftPaneCollapsed ? "試合一覧を表示" : "試合一覧を折りたたむ";
+        RightPaneButton.ToolTip = _vm.IsRightPaneCollapsed ? "イベントを表示" : "イベントを折りたたむ";
     }
 
     /// <summary>中央を動画とスタッツで切り替え、右の列もイベント一覧とラウンドの詳細で切り替える。</summary>
@@ -326,11 +346,8 @@ public partial class MainWindow : Window
     private void ToggleFullscreen()
     {
         _isFullscreen = !_isFullscreen;
-        var side = _isFullscreen ? Visibility.Collapsed : Visibility.Visible;
-        LeftPanel.Visibility = RightPanel.Visibility = Header.Visibility = side;
-        LeftColumn.Width = new GridLength(_isFullscreen ? 0 : 236);
-        RightColumn.Width = new GridLength(_isFullscreen ? 0 : 272);
-        LeftGap.Width = RightGap.Width = new GridLength(_isFullscreen ? 0 : 16);
+        Header.Visibility = _isFullscreen ? Visibility.Collapsed : Visibility.Visible;
+        ApplyPaneLayout();
         Root.Margin = new Thickness(_isFullscreen ? 0 : 16);
         VideoFrame.CornerRadius = new CornerRadius(_isFullscreen ? 0 : 10);
         VideoFrame.BorderThickness = new Thickness(_isFullscreen ? 0 : 1);

@@ -70,7 +70,12 @@ public partial class App : Application
         _settings.LastRunVersion = AppVersion;
         _settings.Save(); // 初回起動時に既定値のファイルを作っておく（手で編集できるように）
 
-        _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume) { DiscordUploadLimitMb = DiscordLimitMb() };
+        _vm = new MainViewModel(_settings.RecordingsRoot, _settings.Volume)
+        {
+            DiscordUploadLimitMb = DiscordLimitMb(),
+            IsLeftPaneCollapsed = _settings.LeftPaneCollapsed,
+            IsRightPaneCollapsed = _settings.RightPaneCollapsed,
+        };
         _vm.PropertyChanged += OnViewModelPropertyChanged;
         _vm.SettingsRequested += OpenSettings;
         _vm.ApplyUpdateRequested += () => _ = ApplyUpdateAsync();
@@ -296,6 +301,12 @@ public partial class App : Application
                 _settings.Volume = _vm!.Volume;
                 _volumeSaveTimer.Stop();
                 _volumeSaveTimer.Start();
+                break;
+            case nameof(MainViewModel.IsLeftPaneCollapsed):
+            case nameof(MainViewModel.IsRightPaneCollapsed):
+                _settings.LeftPaneCollapsed = _vm!.IsLeftPaneCollapsed;
+                _settings.RightPaneCollapsed = _vm.IsRightPaneCollapsed;
+                _settings.Save();
                 break;
         }
     }
